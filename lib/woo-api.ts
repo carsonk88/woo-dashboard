@@ -71,6 +71,14 @@ export class WooAPI {
     return this.request("/coupons", { per_page: 20, ...params });
   }
 
+  async getShippingZones() {
+    return this.request("/shipping/zones");
+  }
+
+  async getShippingZoneMethods(zoneId: number | string) {
+    return this.request(`/shipping/zones/${zoneId}/methods`);
+  }
+
   async getOrderById(id: number | string) {
     return this.request(`/orders/${id}`);
   }

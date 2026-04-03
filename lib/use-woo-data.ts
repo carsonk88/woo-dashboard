@@ -131,23 +131,23 @@ function normalizeCustomer(c: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeCoupon(c: any) {
+  const isExpired = c.date_expires ? new Date(c.date_expires) <= new Date() : false;
   return {
     id: String(c.id),
     code: c.code?.toUpperCase(),
     type:
       c.discount_type === "percent"
-        ? "Percent Off"
+        ? "percentage"
         : c.discount_type === "fixed_cart"
-        ? "Fixed Amount"
-        : "Free Shipping",
+        ? "fixed"
+        : "free_shipping",
     value: c.discount_type === "percent" ? `${c.amount}%` : `$${c.amount}`,
     uses: c.usage_count || 0,
-    limit: c.usage_limit || null,
-    status: c.date_expires
-      ? new Date(c.date_expires) > new Date()
-        ? "Active"
-        : "Expired"
-      : "Active",
+    maxUses: c.usage_limit || null,
+    minOrder: parseFloat(c.minimum_amount || "0"),
+    status: isExpired ? "expired" : "active",
+    startDate: c.date_created || new Date().toISOString(),
+    endDate: c.date_expires || null,
     expiry: c.date_expires
       ? new Date(c.date_expires).toLocaleDateString("en-US", {
           month: "short",
@@ -159,7 +159,35 @@ function normalizeCoupon(c: any) {
   };
 }
 
-type DataType = "orders" | "products" | "customers" | "discounts" | "reviews" | "categories";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeShippingMethod(zone: any, method: any) {
+  const title = method.title || method.method_title || "Shipping";
+  const methodId = method.method_id || "";
+  const carrier =
+    methodId === "flat_rate" ? "Flat Rate"
+    : methodId === "free_shipping" ? "Auto"
+    : methodId === "local_pickup" ? "N/A"
+    : title.includes("USPS") ? "USPS"
+    : title.includes("FedEx") ? "FedEx"
+    : title.includes("UPS") ? "UPS"
+    : "Carrier";
+  const badges: string[] = [];
+  if (zone.name && zone.name !== "Locations not covered by your other zones") badges.push(zone.name);
+  const cost = method.settings?.cost?.value;
+  if (cost) badges.push(`$${cost}`);
+  return {
+    id: method.instance_id || method.id,
+    name: title,
+    carrier,
+    description: method.settings?.title?.description || `${title} shipping method`,
+    badges,
+    isDefault: false,
+    enabled: method.enabled !== false,
+    _woo: true,
+  };
+}
+
+type DataType = "orders" | "products" | "customers" | "discounts" | "reviews" | "categories" | "shipping";
 
 interface UseWooDataResult<T> {
   data: T[];
@@ -191,6 +219,7 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
         discounts: mockDiscounts,
         reviews: mockReviews,
         categories: mockCategories,
+        shipping: [],
       };
 
       // --- Wix path ---
@@ -263,6 +292,16 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
         } else if (type === "categories") {
           raw = (await api.getCategories(params)) as any[];
           raw = raw.map(normalizeCategory);
+        } else if (type === "shipping") {
+          const zones = (await api.getShippingZones()) as any[];
+          const allMethods: any[] = [];
+          for (const zone of zones) {
+            const methods = (await api.getShippingZoneMethods(zone.id)) as any[];
+            for (const method of methods) {
+              allMethods.push(normalizeShippingMethod(zone, method));
+            }
+          }
+          raw = allMethods;
         }
 
         if (!cancelled) {

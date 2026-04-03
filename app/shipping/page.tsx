@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown, Edit, Trash2, CheckCircle, Plus, X } from "lucide-react";
+import { useWooData } from "@/lib/use-woo-data";
 
 interface ShippingMethod {
   id: number;
@@ -71,7 +72,16 @@ const initialMethods: ShippingMethod[] = [
 ];
 
 export default function ShippingPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: liveMethods, isLive } = useWooData<any>("shipping");
   const [methods, setMethods] = useState<ShippingMethod[]>(initialMethods);
+
+  // Populate with live data when available
+  useEffect(() => {
+    if (isLive && liveMethods.length > 0) {
+      setMethods(liveMethods as ShippingMethod[]);
+    }
+  }, [isLive, liveMethods]);
   const [showModal, setShowModal] = useState(false);
   const [editMethod, setEditMethod] = useState<ShippingMethod | null>(null);
   const [form, setForm] = useState({ name: "", carrier: "", description: "", badges: "" });

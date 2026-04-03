@@ -157,9 +157,9 @@ export default function DiscountsPage() {
                       style={
                         d.status === "active"
                           ? {
-                              backgroundColor: "rgba(37,99,235,0.12)",
+                              backgroundColor: "rgba(22,163,74,0.12)",
                               color: "#4ade80",
-                              border: "1px solid rgba(37,99,235,0.25)",
+                              border: "1px solid rgba(22,163,74,0.25)",
                             }
                           : {
                               backgroundColor: "rgba(220,38,38,0.15)",
@@ -168,7 +168,7 @@ export default function DiscountsPage() {
                             }
                       }
                     >
-                      {d.status === "active" ? "Active" : "Expired"}
+                      {d.status === "active" ? "Active" : d.status === "expired" ? "Expired" : d.status}
                     </span>
                   </td>
                   <td className="px-4 py-3">
