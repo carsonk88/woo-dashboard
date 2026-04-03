@@ -4,18 +4,22 @@ import { useState } from "react";
 import { RefreshCw, CheckCircle, AlertCircle, Loader } from "lucide-react";
 import { useWooData } from "@/lib/use-woo-data";
 
-const DATA_TYPES = [
-  { key: "orders" as const,     label: "Orders",     unit: "orders"   },
-  { key: "products" as const,   label: "Products",   unit: "products" },
-  { key: "customers" as const,  label: "Customers",  unit: "customers"},
-  { key: "categories" as const, label: "Categories", unit: "categories"},
-  { key: "reviews" as const,    label: "Reviews",    unit: "reviews"  },
-  { key: "discounts" as const,  label: "Discounts",  unit: "coupons"  },
-  { key: "shipping" as const,   label: "Shipping",   unit: "methods"  },
+type DataTypeKey = "orders" | "products" | "customers" | "categories" | "reviews" | "discounts" | "shipping";
+
+const DATA_TYPES: { key: DataTypeKey; label: string; unit: string }[] = [
+  { key: "orders",     label: "Orders",     unit: "orders"    },
+  { key: "products",   label: "Products",   unit: "products"  },
+  { key: "customers",  label: "Customers",  unit: "customers" },
+  { key: "categories", label: "Categories", unit: "categories"},
+  { key: "reviews",    label: "Reviews",    unit: "reviews"   },
+  { key: "discounts",  label: "Discounts",  unit: "coupons"   },
+  { key: "shipping",   label: "Shipping",   unit: "methods"   },
 ];
 
-function SyncRow({ label, unit, type, tick }: { label: string; unit: string; type: typeof DATA_TYPES[number]["key"]; tick: number }) {
-  const { data, loading, isLive, error } = useWooData<any>(type, { per_page: 100, _tick: tick } as any);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function SyncRow({ label, unit, type }: { label: string; unit: string; type: DataTypeKey }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, loading, isLive, error } = useWooData<any>(type, { per_page: 100 });
 
   return (
     <div
@@ -103,7 +107,7 @@ export default function SyncStatusPanel() {
 
       <div className="space-y-2">
         {DATA_TYPES.map((dt) => (
-          <SyncRow key={`${dt.key}-${tick}`} label={dt.label} unit={dt.unit} type={dt.key} tick={tick} />
+          <SyncRow key={`${dt.key}-${tick}`} label={dt.label} unit={dt.unit} type={dt.key} />
         ))}
       </div>
     </div>

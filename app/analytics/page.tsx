@@ -13,6 +13,7 @@ import {
   Line,
 } from "recharts";
 import { useWooData } from "@/lib/use-woo-data";
+import { affiliates } from "@/lib/mock-data";
 
 // ── US Tile Map ──────────────────────────────────────────────────────────────
 
@@ -686,11 +687,12 @@ export default function AnalyticsPage() {
               Affiliate Leaderboard
             </h3>
             <div className="space-y-3">
-              {affiliates
-                .filter((a) => a.status === "active")
-                .sort((a, b) => b.totalSales - a.totalSales)
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(affiliates as any[])
+                .filter((a: any) => a.status === "active")
+                .sort((a: any, b: any) => b.totalSales - a.totalSales)
                 .slice(0, 5)
-                .map((aff, i) => (
+                .map((aff: any, i: number) => (
                   <div key={aff.id} className="flex items-center gap-3">
                     <span
                       className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
