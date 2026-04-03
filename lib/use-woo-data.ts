@@ -42,6 +42,7 @@ function normalizeOrder(o: any) {
     total: `$${parseFloat(o.total || "0").toFixed(2)}`,
     status: o.status,
     date: new Date(o.date_created).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    isoDate: o.date_created || "",
     items: (o.line_items || []).map((i: any) => ({
       name: i.name,
       quantity: i.quantity,

@@ -1,33 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Circle, Monitor, Smartphone, Tablet } from "lucide-react";
-import { liveVisitors, revenueStats } from "@/lib/mock-data";
+import { useState, useMemo } from "react";
+import { Circle, Monitor, Smartphone, AlertTriangle } from "lucide-react";
+import { useWooData } from "@/lib/use-woo-data";
 
 type LiveTab = "live" | "today" | "7days" | "30days";
-
-const liveEvents = [
-  { type: "purchase", text: "James H. completed a $249.99 purchase", time: "2s ago", color: "#4ade80" },
-  { type: "cart", text: "New visitor added BPC-157 5mg Vial to cart", time: "12s ago", color: "#facc15" },
-  { type: "checkout", text: "Maria S. started checkout — $259.00", time: "28s ago", color: "#60a5fa" },
-  { type: "visit", text: "New visitor from Austin, TX via Google", time: "34s ago", color: "var(--text-muted)" },
-  { type: "cart", text: "Tom B. added Semaglutide 5mg Vial to cart", time: "1m ago", color: "#facc15" },
-  { type: "purchase", text: "Sarah M. completed a $89.95 purchase", time: "2m ago", color: "#4ade80" },
-  { type: "visit", text: "New visitor from Denver, CO via Instagram", time: "3m ago", color: "var(--text-muted)" },
-  { type: "cart", text: "Visitor added CJC-1295 DAC 2mg Vial to cart", time: "4m ago", color: "#facc15" },
-  { type: "checkout", text: "Anonymous started checkout — $150.00", time: "5m ago", color: "#60a5fa" },
-  { type: "visit", text: "3 new visitors from Portland, OR via Facebook", time: "6m ago", color: "var(--text-muted)" },
-];
-
-const pagesRightNow = [
-  { page: "Product: Semaglutide 5mg Vial", visitors: 4 },
-  { page: "Checkout", visitors: 3 },
-  { page: "Cart", visitors: 2 },
-  { page: "Product: BPC-157 5mg Vial", visitors: 2 },
-  { page: "Collections: Weight Loss", visitors: 1 },
-  { page: "Home", visitors: 1 },
-  { page: "Blog: Peptide Research Guide", visitors: 1 },
-];
 
 function IntentBadge({ intent }: { intent: string }) {
   if (intent === "hot") {
@@ -60,22 +37,68 @@ function IntentBadge({ intent }: { intent: string }) {
   );
 }
 
-function DeviceIcon({ device }: { device: string }) {
-  if (device === "Mobile") return <Smartphone size={13} style={{ color: "var(--text-muted)" }} />;
-  if (device === "Tablet") return <Tablet size={13} style={{ color: "var(--text-muted)" }} />;
-  return <Monitor size={13} style={{ color: "var(--text-muted)" }} />;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function timeAgo(isoDate: string): string {
+  if (!isoDate) return "";
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (mins > 0) return `${mins}m ago`;
+  return "just now";
 }
 
 export default function LivePage() {
   const [tab, setTab] = useState<LiveTab>("live");
-  const [visitorCount, setVisitorCount] = useState(12);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orders, isLive } = useWooData<any>("orders", { per_page: 100 });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setVisitorCount((c) => c + Math.floor(Math.random() * 3) - 1);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start7Days = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const start30Days = new Date(startOfToday.getTime() - 29 * 24 * 60 * 60 * 1000);
+
+  const filteredOrders = useMemo(() => {
+    if (!isLive) return orders;
+    const cutoff =
+      tab === "live" || tab === "today" ? startOfToday
+      : tab === "7days" ? start7Days
+      : start30Days;
+    return orders.filter((o: any) => o.isoDate && new Date(o.isoDate) >= cutoff);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, tab, isLive]);
+
+  const revenue = useMemo(
+    () => filteredOrders.reduce((acc: number, o: any) => acc + parseFloat(String(o.total).replace("$", "") || "0"), 0),
+    [filteredOrders]
+  );
+  const orderCount = filteredOrders.length;
+
+  const recentEvents = useMemo(
+    () => orders.slice(0, 8).map((o: any) => ({
+      text: `${o.customer?.name || o.customer || "A customer"} completed a ${o.total} purchase`,
+      time: timeAgo(o.isoDate),
+      color: o.status === "completed" || o.status === "processing" ? "#4ade80" : "#facc15",
+    })),
+    [orders]
+  );
+
+  // Top products from filtered orders
+  const topProducts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredOrders.forEach((o: any) => {
+      (o.items || []).forEach((i: any) => {
+        const name = i.name || "Unknown";
+        counts[name] = (counts[name] || 0) + (i.quantity || 1);
+      });
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 7)
+      .map(([name, qty]) => ({ page: name, visitors: qty }));
+  }, [filteredOrders]);
 
   const tabs: { key: LiveTab; label: string }[] = [
     { key: "live", label: "Live" },
@@ -83,6 +106,14 @@ export default function LivePage() {
     { key: "7days", label: "7 Days" },
     { key: "30days", label: "30 Days" },
   ];
+
+  const revenueLabel =
+    tab === "live" || tab === "today" ? "Today's Revenue"
+    : tab === "7days" ? "7-Day Revenue"
+    : "30-Day Revenue";
+
+  const ordersLabel =
+    tab === "live" || tab === "today" ? "Today's Orders" : "Orders";
 
   return (
     <div style={{ backgroundColor: "var(--bg-page)", minHeight: "100vh" }}>
@@ -109,11 +140,7 @@ export default function LivePage() {
               style={
                 tab === t.key
                   ? { backgroundColor: "var(--accent-green)", color: "#fff" }
-                  : {
-                      backgroundColor: "var(--bg-elevated)",
-                      color: "var(--text-muted)",
-                      border: "1px solid var(--border)",
-                    }
+                  : { backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)", border: "1px solid var(--border)" }
               }
             >
               {t.key === "live" && tab === "live" ? (
@@ -130,105 +157,78 @@ export default function LivePage() {
       </div>
 
       <div className="p-6">
-        {/* Revenue + Orders vs yesterday */}
+        {/* Revenue + Orders */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div
             className="rounded-xl p-4"
             style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
             <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>
-              {tab === "live" ? "Today's Revenue" : tab === "today" ? "Today's Revenue" : tab === "7days" ? "7-Day Revenue" : "30-Day Revenue"}
+              {revenueLabel}
             </p>
             <p className="text-3xl font-semibold font-mono tabular-nums" style={{ color: "var(--text-primary)" }}>
-              ${tab === "live" || tab === "today" ? revenueStats.today.toFixed(2) : tab === "7days" ? revenueStats.last7days.toLocaleString() : revenueStats.thisMonth.toLocaleString()}
+              ${revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-xs mt-1" style={{ color: "var(--accent-green-bright)" }}>
-              +{tab === "live" || tab === "today" ? "28.9" : "12.4"}% vs yesterday
-            </p>
+            {isLive && (
+              <p className="text-[10px] mt-1 font-mono" style={{ color: "var(--text-subtle)" }}>
+                {orderCount} order{orderCount !== 1 ? "s" : ""} in period
+              </p>
+            )}
           </div>
           <div
             className="rounded-xl p-4"
             style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
             <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>
-              {tab === "live" ? "Today's Orders" : "Orders"}
+              {ordersLabel}
             </p>
             <p className="text-3xl font-semibold font-mono tabular-nums" style={{ color: "var(--text-primary)" }}>
-              {tab === "live" || tab === "today" ? 4 : tab === "7days" ? 26 : 89}
+              {orderCount}
             </p>
-            <p className="text-xs mt-1" style={{ color: "var(--accent-green-bright)" }}>
-              vs {tab === "live" || tab === "today" ? 6 : tab === "7days" ? 22 : 76} yesterday period
-            </p>
+            {isLive && (
+              <p className="text-[10px] mt-1 font-mono" style={{ color: "var(--text-subtle)" }}>
+                from your {isLive ? "store" : "demo data"}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Live visitor count */}
-        {tab === "live" && (
-          <div
-            className="rounded-xl p-4 mb-4 flex items-center gap-4"
-            style={{
-              backgroundColor: "rgba(37,99,235,0.08)",
-              border: "1px solid rgba(37,99,235,0.25)",
-            }}
-          >
-            <Circle size={10} className="fill-green-400 text-green-400 pulse-green" />
-            <div>
-              <span
-                className="text-4xl font-semibold font-mono tabular-nums"
-                style={{ color: "var(--accent-green-bright)" }}
-              >
-                {visitorCount}
-              </span>
-              <span className="text-sm ml-2" style={{ color: "var(--text-muted)" }}>
-                active visitors right now
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* 5 metric cards */}
-        <div className="grid grid-cols-5 gap-3 mb-4">
-          {[
-            { label: "Pageviews", value: tab === "live" ? "142" : tab === "today" ? "1,842" : tab === "7days" ? "12,456" : "48,234" },
-            { label: "Unique Visitors", value: tab === "live" ? "87" : tab === "today" ? "984" : tab === "7days" ? "6,234" : "24,156" },
-            { label: "Cart Adds", value: tab === "live" ? "14" : tab === "today" ? "89" : tab === "7days" ? "534" : "2,134" },
-            { label: "Checkouts", value: tab === "live" ? "6" : tab === "today" ? "34" : tab === "7days" ? "198" : "756" },
-            { label: "Conversions", value: tab === "live" ? "4" : tab === "today" ? "18" : tab === "7days" ? "89" : "312", color: "var(--accent-green-bright)" },
-          ].map((card) => (
-            <div
-              key={card.label}
-              className="rounded-xl p-3"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
-            >
-              <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
-                {card.label}
-              </p>
-              <p
-                className="text-xl font-semibold font-mono tabular-nums"
-                style={{ color: card.color || "var(--text-primary)" }}
-              >
-                {card.value}
-              </p>
-            </div>
-          ))}
+        {/* Visitor tracking banner */}
+        <div
+          className="flex items-start gap-3 rounded-xl px-4 py-3 mb-4"
+          style={{ backgroundColor: "rgba(202,138,4,0.08)", border: "1px solid rgba(202,138,4,0.25)" }}
+        >
+          <AlertTriangle size={14} style={{ color: "#facc15", flexShrink: 0, marginTop: 1 }} />
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            <span style={{ color: "#facc15", fontWeight: 600 }}>Visitor data requires an analytics integration.</span>{" "}
+            Active visitors, pageviews, cart adds, and checkouts need Google Analytics, Plausible, or a similar tracker — these cannot be pulled from the store API.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_260px] gap-4">
-          {/* Active Visitors table */}
-          <div className="space-y-4">
-            <div
-              className="rounded-xl overflow-hidden"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
-            >
-              <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Active Visitors
-                </h3>
-              </div>
+          {/* Top products from real orders */}
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+          >
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {isLive ? "Top Products in Period" : "Top Products"}
+              </h3>
+              {isLive && (
+                <span
+                  className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "rgba(22,163,74,0.12)", color: "#4ade80", border: "1px solid rgba(22,163,74,0.25)" }}
+                >
+                  Live
+                </span>
+              )}
+            </div>
+            {topProducts.length > 0 ? (
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["PAGE", "LOCATION", "DEVICE", "SOURCE", "TIME", "CART", "INTENT"].map((h) => (
+                    {["PRODUCT", "UNITS SOLD"].map((h) => (
                       <th
                         key={h}
                         className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-wider"
@@ -240,88 +240,36 @@ export default function LivePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {liveVisitors.map((v) => (
-                    <tr
-                      key={v.id}
-                      className="table-row-hover"
-                      style={{ borderBottom: "1px solid rgba(34,34,34,0.4)" }}
-                    >
+                  {topProducts.map((p, i) => (
+                    <tr key={i} className="table-row-hover" style={{ borderBottom: "1px solid rgba(34,34,34,0.4)" }}>
                       <td className="px-4 py-2.5">
                         <span className="text-xs" style={{ color: "var(--text-primary)" }}>
-                          {v.pageLabel}
+                          {p.page.length > 40 ? p.page.slice(0, 40) + "…" : p.page}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                          {v.location}
+                        <span
+                          className="text-xs font-mono px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: "rgba(37,99,235,0.1)", color: "var(--accent-green-bright)" }}
+                        >
+                          {p.visitors}
                         </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <DeviceIcon device={v.device} />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                          {v.source}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                          {v.duration}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {v.cartValue > 0 ? (
-                          <span className="text-xs font-mono" style={{ color: "var(--accent-green-bright)" }}>
-                            ${v.cartValue.toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-xs" style={{ color: "var(--text-subtle)" }}>—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <IntentBadge intent={v.intent} />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            ) : (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  No orders in this period
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Right sidebar: Pages + Events feed */}
-          <div className="space-y-4">
-            {/* Pages Right Now */}
-            <div
-              className="rounded-xl p-4"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
-            >
-              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
-                Pages Right Now
-              </h3>
-              <div className="space-y-2">
-                {pagesRightNow.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <span
-                      className="text-xs truncate flex-1 mr-2"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {p.page}
-                    </span>
-                    <span
-                      className="text-xs font-mono px-2 py-0.5 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: "rgba(37,99,235,0.1)",
-                        color: "var(--accent-green-bright)",
-                      }}
-                    >
-                      {p.visitors}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Live Events Feed */}
+          {/* Right sidebar: Live Events */}
+          <div>
             <div
               className="rounded-xl p-4"
               style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
@@ -329,11 +277,11 @@ export default function LivePage() {
               <div className="flex items-center gap-2 mb-3">
                 <Circle size={6} className="fill-green-400 text-green-400 pulse-green" />
                 <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                  Live Events
+                  {isLive ? "Recent Orders" : "Live Events"}
                 </h3>
               </div>
               <div className="space-y-2.5">
-                {liveEvents.slice(0, 8).map((event, i) => (
+                {recentEvents.length > 0 ? recentEvents.map((event, i) => (
                   <div key={i} className="flex items-start gap-2">
                     <div
                       className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
@@ -348,7 +296,9 @@ export default function LivePage() {
                       </p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>No recent orders</p>
+                )}
               </div>
             </div>
           </div>

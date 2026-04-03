@@ -40,6 +40,7 @@ function normalizeWixOrder(o: any) {
     date: o.createdDate
       ? new Date(o.createdDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
       : "",
+    isoDate: o.createdDate || "",
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: (o.lineItems || []).map((i: any) => ({
       name: i.productName?.original || i.name || "Item",
