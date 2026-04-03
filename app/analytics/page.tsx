@@ -12,10 +12,6 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import {
-  analyticsTopStates,
-  affiliates,
-} from "@/lib/mock-data";
 import { useWooData } from "@/lib/use-woo-data";
 
 // ── US Tile Map ──────────────────────────────────────────────────────────────
@@ -92,11 +88,11 @@ const STATE_DATA: Record<string, { revenue: number; orders: number; customers: n
   AK: { revenue: 550, orders: 2, customers: 2 },
 };
 
-function USMapTile() {
+function USMapTile({ stateData }: { stateData: Record<string, { revenue: number; orders: number; customers: number }> }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  const maxRevenue = Math.max(...Object.values(STATE_DATA).map((d) => d.revenue));
+  const maxRevenue = Math.max(...Object.values(stateData).map((d) => d.revenue), 1);
   const TILE = 26;
   const GAP = 3;
   const COLS = 12;
@@ -104,7 +100,7 @@ function USMapTile() {
   const W = COLS * TILE + (COLS - 1) * GAP;
   const H = ROWS * TILE + (ROWS - 1) * GAP;
 
-  const hoveredData = hovered ? STATE_DATA[hovered] : null;
+  const hoveredData = hovered ? stateData[hovered] : null;
 
   return (
     <div className="relative">
@@ -114,7 +110,7 @@ function USMapTile() {
         onMouseLeave={() => setHovered(null)}
       >
         {Object.entries(STATE_POS).map(([abbr, { col, row }]) => {
-          const data = STATE_DATA[abbr];
+          const data = stateData[abbr];
           const intensity = data ? data.revenue / maxRevenue : 0;
           const x = col * (TILE + GAP);
           const y = row * (TILE + GAP);
@@ -268,7 +264,7 @@ export default function AnalyticsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: discounts } = useWooData<any>("discounts", { per_page: 50 });
 
-  const { chartData, topProducts, orderStatusCounts, trendingProducts } = useMemo(() => {
+  const { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates } = useMemo(() => {
     const days = parseInt(timeRange);
     const cutoff = new Date(Date.now() - days * 86400000);
 
@@ -331,7 +327,23 @@ export default function AnalyticsPage() {
       orderStatusCounts[s] = (orderStatusCounts[s] || 0) + 1;
     }
 
-    return { chartData, topProducts, orderStatusCounts, trendingProducts };
+    // State data from shipping addresses
+    const stateMap: Record<string, { revenue: number; orders: number; customers: number }> = {};
+    for (const o of orders) {
+      const state = (o.shippingAddress?.state || "").toUpperCase().slice(0, 2);
+      if (!state || state.length !== 2) continue;
+      if (!stateMap[state]) stateMap[state] = { revenue: 0, orders: 0, customers: 0 };
+      stateMap[state].revenue += parseFloat(String(o.total).replace("$", "")) || 0;
+      stateMap[state].orders += 1;
+      stateMap[state].customers += 1;
+    }
+    const liveStateData = Object.keys(stateMap).length > 0 ? stateMap : STATE_DATA;
+    const topStates = Object.entries(liveStateData)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, 5)
+      .map(([state, d]) => ({ state, ...d }));
+
+    return { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates };
   }, [orders, timeRange]);
 
   const totalRevenue = chartData.reduce((acc: number, d: any) => acc + d.revenue, 0);
@@ -459,10 +471,10 @@ export default function AnalyticsPage() {
               Revenue by State
             </h2>
             <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Hover a state for details</p>
-            <USMapTile />
+            <USMapTile stateData={liveStateData} />
             <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
               <div className="space-y-1.5">
-                {analyticsTopStates.slice(0, 5).map((state, i) => (
+                {topStates.map((state, i) => (
                   <div key={state.state} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] w-4 text-right font-mono" style={{ color: "var(--text-subtle)" }}>{i + 1}</span>

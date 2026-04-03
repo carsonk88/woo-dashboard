@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Search, Plus, FileText, Upload, FlaskConical, X } from "lucide-react";
-import { products } from "@/lib/mock-data";
+import { useWooData } from "@/lib/use-woo-data";
 
 interface COAData {
   productId: number;
@@ -99,8 +99,10 @@ const mockCOAs: Record<number, COAData> = {
 };
 
 export default function COAPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: products } = useWooData<any>("products");
   const [search, setSearch] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(1);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadProduct, setUploadProduct] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -111,11 +113,11 @@ export default function COAPage() {
     (p) =>
       !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase())
+      (p.sku || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
-  const coa = selectedProductId ? mockCOAs[selectedProductId] : null;
+  const coa = selectedProductId ? mockCOAs[Number(selectedProductId)] : null;
 
   return (
     <div style={{ backgroundColor: "var(--bg-page)", minHeight: "100vh" }}>
@@ -174,12 +176,12 @@ export default function COAPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {filteredProducts.map((product) => {
-              const hasCOA = !!mockCOAs[product.id];
+              const hasCOA = !!mockCOAs[Number(product.id)];
               const isSelected = selectedProductId === product.id;
               return (
                 <button
                   key={product.id}
-                  onClick={() => setSelectedProductId(product.id)}
+                  onClick={() => setSelectedProductId(String(product.id))}
                   className="w-full text-left px-4 py-3 transition-colors"
                   style={{
                     backgroundColor: isSelected ? "var(--badge-shipped-bg)" : "transparent",
@@ -234,7 +236,7 @@ export default function COAPage() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setShowUploadModal(true); setUploadProduct(String(selectedProductId)); setUploadDone(false); setUploadFile(null); }}
+                    onClick={() => { setShowUploadModal(true); setUploadProduct(selectedProductId || ""); setUploadDone(false); setUploadFile(null); }}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
                     style={{
                       backgroundColor: "var(--bg-elevated)",
