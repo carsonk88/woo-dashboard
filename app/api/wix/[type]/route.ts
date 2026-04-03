@@ -6,6 +6,7 @@ function wixHeaders(apiKey: string, siteId: string): Record<string, string> {
   return {
     Authorization: apiKey,
     "wix-site-id": siteId,
+    "wix-auth-type": "apikey",
     "Content-Type": "application/json",
   };
 }
@@ -114,6 +115,16 @@ export async function GET(
   const headers = wixHeaders(apiKey, siteId);
 
   try {
+    if (type === "debug") {
+      const res = await fetch(`${WIX_BASE}/ecom/v1/orders/search`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ query: { paging: { limit: 5, offset: 0 } } }),
+      });
+      const text = await res.text();
+      return NextResponse.json({ status: res.status, headers: Object.fromEntries(res.headers), body: text });
+    }
+
     if (type === "orders") {
       const res = await fetch(`${WIX_BASE}/ecom/v1/orders/search`, {
         method: "POST",
@@ -123,7 +134,7 @@ export async function GET(
       const data = await res.json();
       if (!res.ok)
         return NextResponse.json(
-          { error: data.message || "Wix API error" },
+          { error: data.message || "Wix API error", details: data },
           { status: res.status }
         );
       return NextResponse.json((data.orders || []).map(normalizeWixOrder));
