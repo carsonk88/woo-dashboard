@@ -11,9 +11,11 @@ export default function CategoriesPage() {
   const [newCat, setNewCat] = useState({ name: "", slug: "", description: "" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: categories, loading, isLive } = useWooData<any>("categories", { per_page: 100, hide_empty: 0 });
+  const { data: products } = useWooData<any>("products", { per_page: 100 });
 
   const topLevel = categories.filter((c: any) => c.parent === 0);
-  const totalProducts = categories.reduce((s: number, c: any) => s + (c.count || 0), 0);
+  // Use actual product count rather than summing category counts (which double-counts products in multiple categories)
+  const totalProducts = products.length;
 
   return (
     <div style={{ backgroundColor: "var(--bg-page)", minHeight: "100vh" }}>
