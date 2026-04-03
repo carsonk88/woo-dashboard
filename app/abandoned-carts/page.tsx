@@ -214,7 +214,8 @@ export default function AbandonedCartsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="space-y-0.5">
-                      {cart.items.map((item, i) => (
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {cart.items.map((item: any, i: number) => (
                         <p key={i} className="text-xs" style={{ color: "var(--text-muted)" }}>
                           {item.qty}x {item.name.length > 20 ? item.name.slice(0, 20) + "…" : item.name}
                         </p>
