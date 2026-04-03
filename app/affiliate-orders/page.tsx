@@ -1,17 +1,67 @@
 "use client";
 
-import { orders, affiliates } from "@/lib/mock-data";
-
-const affiliateCodes = affiliates.map((a) => a.code);
-
-const affiliateOrders = orders.slice(0, 8).map((order, i) => ({
-  ...order,
-  affiliateCode: affiliateCodes[i % affiliateCodes.length],
-  affiliateName: affiliates[i % affiliates.length].name,
-  commission: order.total * 0.15,
-}));
+import { useMemo } from "react";
+import { useWooData } from "@/lib/use-woo-data";
+import { affiliates } from "@/lib/mock-data";
 
 export default function AffiliateOrdersPage() {
+  const { data: rawOrders, isLive } = useWooData<any>("orders", { per_page: 50 });
+
+  const affiliateCodes = affiliates.map((a) => a.code);
+
+  const affiliateOrders = useMemo(() => {
+    if (isLive) {
+      // Show orders where a coupon/discount was applied — these are potential affiliate orders
+      const discounted = rawOrders.filter((o: any) => o.discount);
+      if (discounted.length > 0) {
+        return discounted.map((o: any) => {
+          const total = parseFloat(String(o.total).replace("$", "")) || 0;
+          return {
+            id: o.id,
+            number: o.number || `#${String(o.id).slice(-8)}`,
+            customer: o.customer?.name || "Unknown",
+            email: o.customer?.email || "",
+            affiliateCode: "COUPON",
+            affiliateName: "Via Coupon",
+            total,
+            commission: total * 0.15,
+            date: o.date,
+            status: o.status,
+          };
+        });
+      }
+      // No discounted orders — show all orders with mock affiliate attribution
+      return rawOrders.slice(0, 8).map((o: any, i: number) => {
+        const total = parseFloat(String(o.total).replace("$", "")) || 0;
+        return {
+          id: o.id,
+          number: o.number || `#${String(o.id).slice(-8)}`,
+          customer: o.customer?.name || "Unknown",
+          email: o.customer?.email || "",
+          affiliateCode: affiliateCodes[i % affiliateCodes.length],
+          affiliateName: affiliates[i % affiliates.length].name,
+          total,
+          commission: total * 0.15,
+          date: o.date,
+          status: o.status,
+        };
+      });
+    }
+    // Mock fallback — rawOrders is mock-data format (flat, total as number)
+    return rawOrders.slice(0, 8).map((order: any, i: number) => ({
+      id: order.id,
+      number: `#${String(order.id).slice(-8)}`,
+      customer: order.customer?.name || order.customer || "Unknown",
+      email: order.customer?.email || order.email || "",
+      affiliateCode: affiliateCodes[i % affiliateCodes.length],
+      affiliateName: affiliates[i % affiliates.length].name,
+      total: parseFloat(String(order.total).replace("$", "")) || order.total || 0,
+      commission: (parseFloat(String(order.total).replace("$", "")) || order.total || 0) * 0.15,
+      date: order.date,
+      status: order.status,
+    }));
+  }, [rawOrders, isLive]);
+
   return (
     <div style={{ backgroundColor: "var(--bg-page)", minHeight: "100vh" }}>
       <div
@@ -27,7 +77,7 @@ export default function AffiliateOrdersPage() {
             Affiliate Orders
           </h1>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Orders attributed to affiliate codes
+            {isLive ? "Orders attributed to affiliate codes" : "Demo data — connect WooCommerce to see live orders"}
           </p>
         </div>
       </div>
@@ -60,7 +110,7 @@ export default function AffiliateOrdersPage() {
                 >
                   <td className="px-4 py-3">
                     <span className="text-xs font-mono font-medium" style={{ color: "#a78bfa" }}>
-                      #{order.id.slice(-8)}
+                      {order.number}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -102,7 +152,7 @@ export default function AffiliateOrdersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                      {new Date(order.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {order.date}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -123,6 +173,13 @@ export default function AffiliateOrdersPage() {
                   </td>
                 </tr>
               ))}
+              {affiliateOrders.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center">
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>No affiliate orders found</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

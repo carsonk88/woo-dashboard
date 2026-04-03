@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { ShoppingCart, DollarSign, Mail, RefreshCw, AlertTriangle } from "lucide-react";
-import { abandonedCarts } from "@/lib/mock-data";
+import { abandonedCarts as mockCarts } from "@/lib/mock-data";
+import { useWooData } from "@/lib/use-woo-data";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; bgVar: string; colorVar: string; borderVar: string }> = {
@@ -22,21 +24,39 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function timeAgo(date: string) {
-  const now = new Date("2026-03-28T18:00:00");
   const then = new Date(date);
+  if (isNaN(then.getTime())) return date;
+  const now = new Date();
   const diffMs = now.getTime() - then.getTime();
   const diffH = Math.floor(diffMs / (1000 * 60 * 60));
   const diffD = Math.floor(diffH / 24);
   if (diffD > 0) return `${diffD}d ago`;
-  return `${diffH}h ago`;
+  if (diffH > 0) return `${diffH}h ago`;
+  return "recently";
 }
 
 export default function AbandonedCartsPage() {
-  const totalValue = abandonedCarts.reduce((acc, c) => acc + c.value, 0);
-  const recovered = abandonedCarts.filter((c) => c.status === "recovered");
-  const recoveryRate = (recovered.length / abandonedCarts.length) * 100;
+  const { data: rawOrders, isLive } = useWooData<any>("orders", { status: "pending", per_page: 50 });
+
+  const carts = useMemo(() => {
+    if (!isLive) return mockCarts;
+    return rawOrders.map((o: any) => ({
+      id: o.id,
+      customer: o.customer?.name || o.customer || "Unknown",
+      email: o.customer?.email || o.email || "",
+      items: (o.items || []).map((i: any) => ({ qty: i.quantity ?? i.qty ?? 1, name: i.name })),
+      value: parseFloat(String(o.total).replace("$", "")) || 0,
+      abandonedAt: o.date,
+      status: "new" as const,
+      recoveryEmails: 0,
+    }));
+  }, [rawOrders, isLive]);
+
+  const totalValue = carts.reduce((acc, c) => acc + c.value, 0);
+  const recovered = carts.filter((c) => c.status === "recovered");
+  const recoveryRate = carts.length > 0 ? (recovered.length / carts.length) * 100 : 0;
   const recoveredValue = recovered.reduce((acc, c) => acc + c.value, 0);
-  const pendingValue = abandonedCarts
+  const pendingValue = carts
     .filter((c) => c.status === "new" || c.status === "email_sent")
     .reduce((acc, c) => acc + c.value, 0);
 
@@ -55,30 +75,46 @@ export default function AbandonedCartsPage() {
             Abandoned Carts
           </h1>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Recovery and cart analytics
+            {isLive ? `${carts.length} pending orders` : "Recovery and cart analytics"}
           </p>
         </div>
       </div>
 
       <div className="p-6">
-        {/* Safe Mode Banner */}
-        <div
-          className="flex items-center gap-3 rounded-xl px-4 py-3 mb-5"
-          style={{
-            backgroundColor: "rgba(202,138,4,0.08)",
-            border: "1px solid rgba(202,138,4,0.3)",
-          }}
-        >
-          <AlertTriangle size={15} style={{ color: "#facc15", flexShrink: 0 }} />
-          <div>
-            <p className="text-xs font-semibold" style={{ color: "#facc15" }}>
-              Safe Mode Active
-            </p>
+        {isLive && (
+          <div
+            className="flex items-center gap-3 rounded-xl px-4 py-3 mb-5"
+            style={{
+              backgroundColor: "rgba(59,130,246,0.08)",
+              border: "1px solid rgba(59,130,246,0.2)",
+            }}
+          >
+            <ShoppingCart size={14} style={{ color: "#60a5fa", flexShrink: 0 }} />
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Recovery emails will be sent with a 30-minute delay to prevent sending to customers who return on their own.
+              Showing <span style={{ color: "#60a5fa" }}>pending orders</span> from WooCommerce as potential abandoned carts.
             </p>
           </div>
-        </div>
+        )}
+
+        {!isLive && (
+          <div
+            className="flex items-center gap-3 rounded-xl px-4 py-3 mb-5"
+            style={{
+              backgroundColor: "rgba(202,138,4,0.08)",
+              border: "1px solid rgba(202,138,4,0.3)",
+            }}
+          >
+            <AlertTriangle size={15} style={{ color: "#facc15", flexShrink: 0 }} />
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "#facc15" }}>
+                Safe Mode Active
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Recovery emails will be sent with a 30-minute delay to prevent sending to customers who return on their own.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -103,7 +139,7 @@ export default function AbandonedCartsPage() {
             },
             {
               label: "Total Carts",
-              value: abandonedCarts.length,
+              value: carts.length,
               icon: <ShoppingCart size={14} />,
               color: "var(--text-primary)",
             },
@@ -115,7 +151,7 @@ export default function AbandonedCartsPage() {
             },
             {
               label: "Emails Sent",
-              value: abandonedCarts.reduce((acc, c) => acc + c.recoveryEmails, 0),
+              value: carts.reduce((acc, c) => acc + (c.recoveryEmails || 0), 0),
               icon: <Mail size={14} />,
               color: "var(--badge-shipped-color)",
             },
@@ -158,7 +194,7 @@ export default function AbandonedCartsPage() {
               </tr>
             </thead>
             <tbody>
-              {abandonedCarts.map((cart) => (
+              {carts.map((cart) => (
                 <tr
                   key={cart.id}
                   className="table-row-hover"
@@ -203,13 +239,13 @@ export default function AbandonedCartsPage() {
                       className="text-xs font-mono px-2 py-0.5 rounded"
                       style={{
                         backgroundColor:
-                          cart.recoveryEmails > 0
+                          (cart.recoveryEmails || 0) > 0
                             ? "rgba(59,130,246,0.12)"
                             : "var(--bg-elevated)",
-                        color: cart.recoveryEmails > 0 ? "var(--badge-shipped-color)" : "var(--text-subtle)",
+                        color: (cart.recoveryEmails || 0) > 0 ? "var(--badge-shipped-color)" : "var(--text-subtle)",
                       }}
                     >
-                      {cart.recoveryEmails}
+                      {cart.recoveryEmails || 0}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -243,6 +279,15 @@ export default function AbandonedCartsPage() {
                   </td>
                 </tr>
               ))}
+              {carts.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center">
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                      {isLive ? "No pending orders found" : "No abandoned carts"}
+                    </p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

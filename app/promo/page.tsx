@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { Plus, Edit, Pause, Trash2, BarChart2, X, Play } from "lucide-react";
-import { discounts as initialDiscounts, affiliates as initialAffiliates } from "@/lib/mock-data";
+import { affiliates as initialAffiliates } from "@/lib/mock-data";
+import { useWooData } from "@/lib/use-woo-data";
 
 type PromoTab = "codes" | "affiliates" | "analytics";
 
 export default function PromoPage() {
   const [tab, setTab] = useState<PromoTab>("codes");
+  const { data: wooDiscounts } = useWooData<any>("discounts");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [discounts, setDiscounts] = useState<any[]>(initialDiscounts);
+  const [localDiscounts, setLocalDiscounts] = useState<any[]>([]);
+  const discounts = [...wooDiscounts, ...localDiscounts];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [affiliates, setAffiliates] = useState<any[]>(initialAffiliates);
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -195,7 +198,7 @@ export default function PromoPage() {
                           <Edit size={12} />
                         </button>
                         <button
-                          onClick={() => setDiscounts((prev) => prev.map((x) => x.id === d.id ? { ...x, status: x.status === "active" ? "paused" : "active" } : x))}
+                          onClick={() => setLocalDiscounts((prev) => prev.map((x) => x.id === d.id ? { ...x, status: x.status === "active" ? "paused" : "active" } : x))}
                           className="p-1.5 rounded-md transition-colors"
                           title={d.status === "active" ? "Pause" : "Resume"}
                           style={{ color: "var(--text-muted)" }}
@@ -211,7 +214,7 @@ export default function PromoPage() {
                           {d.status === "active" ? <Pause size={12} /> : <Play size={12} />}
                         </button>
                         <button
-                          onClick={() => setDiscounts((prev) => prev.filter((x) => x.id !== d.id))}
+                          onClick={() => setLocalDiscounts((prev) => prev.filter((x) => x.id !== d.id))}
                           className="p-1.5 rounded-md transition-colors"
                           title="Delete"
                           style={{ color: "var(--text-muted)" }}
@@ -440,9 +443,9 @@ export default function PromoPage() {
               <button
                 onClick={() => {
                   if (editCode) {
-                    setDiscounts((prev) => prev.map((d) => d.id === editCode.id ? { ...d, code: newCode.code, type: newCode.type, value: newCode.value } : d));
+                    setLocalDiscounts((prev) => prev.map((d) => d.id === editCode.id ? { ...d, code: newCode.code, type: newCode.type, value: newCode.value } : d));
                   } else {
-                    setDiscounts((prev) => [...prev, { id: Date.now(), code: newCode.code, type: newCode.type, value: newCode.value, uses: 0, maxUses: newCode.maxUses ? parseInt(newCode.maxUses) : null, status: "active", startDate: new Date().toISOString(), endDate: null, minOrder: 0 }]);
+                    setLocalDiscounts((prev) => [...prev, { id: Date.now(), code: newCode.code, type: newCode.type, value: newCode.value, uses: 0, maxUses: newCode.maxUses ? parseInt(newCode.maxUses) : null, status: "active", startDate: new Date().toISOString(), endDate: null, minOrder: 0 }]);
                   }
                   setShowCodeModal(false); setEditCode(null); setNewCode({ code: "", type: "percentage", value: "", maxUses: "" });
                 }}
