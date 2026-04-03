@@ -9,13 +9,13 @@ interface ThemeContextType {
   toggle: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ theme: "light", toggle: () => {} });
+const ThemeContext = createContext<ThemeContextType>({ theme: "dark", toggle: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const stored = (localStorage.getItem("theme") as Theme) || "light";
+    const stored = (localStorage.getItem("theme") as Theme) || "dark";
     setTheme(stored);
     document.documentElement.setAttribute("data-theme", stored);
   }, []);
