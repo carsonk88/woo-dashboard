@@ -225,7 +225,7 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
       // --- Wix path ---
       if (platform === "wix" && isWixConnected()) {
         const creds = loadWixCredentials()!;
-        const wixTypes: DataType[] = ["orders", "products", "customers"];
+        const wixTypes: DataType[] = ["orders", "products", "customers", "categories"];
         if (!wixTypes.includes(type)) {
           // discounts / reviews / categories not in Wix API — use mock
           if (!cancelled) { setData(mockMap[type] as T[]); setIsLive(false); setLoading(false); }

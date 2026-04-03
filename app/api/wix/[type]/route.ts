@@ -84,6 +84,19 @@ function normalizeWixProduct(p: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeWixCollection(c: any) {
+  return {
+    id: c.id,
+    name: c.name,
+    slug: c.slug || (c.name || "").toLowerCase().replace(/\s+/g, "-"),
+    count: c.numberOfProducts || 0,
+    description: c.description || "",
+    parent: 0,
+    image: c.media?.mainMedia?.image?.url || null,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeWixContact(c: any) {
   const first = c.info?.name?.first || "";
   const last = c.info?.name?.last || "";
@@ -168,6 +181,23 @@ export async function GET(
           { status: res.status }
         );
       return NextResponse.json((data.contacts || []).map(normalizeWixContact));
+    }
+
+    if (type === "categories") {
+      const res = await fetch(`${WIX_BASE}/stores/v1/collections/query`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ query: { paging: { limit: 100, offset: 0 } } }),
+      });
+      const data = await res.json();
+      if (!res.ok)
+        return NextResponse.json(
+          { error: data.message || "Wix API error" },
+          { status: res.status }
+        );
+      // Filter out "All Products" default collection
+      const collections = (data.collections || []).filter((c: any) => c.id !== "00000000-000000-000000-000000000001");
+      return NextResponse.json(collections.map(normalizeWixCollection));
     }
 
     return NextResponse.json({ error: "Unknown type" }, { status: 400 });
