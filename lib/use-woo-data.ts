@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getWooAPI, isWooConnected } from "./woo-api";
+import { getClientPlatform, isWixConnected, loadWixCredentials } from "./wix-api";
 import {
   orders as mockOrders,
   products as mockProducts,
@@ -182,19 +183,55 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
       setLoading(true);
       setError(null);
 
+      const platform = getClientPlatform();
+      const mockMap: Record<DataType, unknown[]> = {
+        orders: mockOrders,
+        products: mockProducts,
+        customers: mockCustomers,
+        discounts: mockDiscounts,
+        reviews: mockReviews,
+        categories: mockCategories,
+      };
+
+      // --- Wix path ---
+      if (platform === "wix" && isWixConnected()) {
+        const creds = loadWixCredentials()!;
+        const wixTypes: DataType[] = ["orders", "products", "customers"];
+        if (!wixTypes.includes(type)) {
+          // discounts / reviews / categories not in Wix API — use mock
+          if (!cancelled) { setData(mockMap[type] as T[]); setIsLive(false); setLoading(false); }
+          return;
+        }
+        try {
+          const res = await fetch(
+            `/api/wix/${type}?site_id=${encodeURIComponent(creds.siteId)}&api_key=${encodeURIComponent(creds.apiKey)}`
+          );
+          const raw = await res.json();
+          if (!cancelled) {
+            if (!res.ok || raw.error) {
+              setError(raw.error || "Wix API error");
+              setData(mockMap[type] as T[]);
+            } else {
+              setIsLive(true);
+              setData(raw as T[]);
+            }
+            setLoading(false);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : "Failed to fetch Wix data");
+            setData(mockMap[type] as T[]);
+            setLoading(false);
+          }
+        }
+        return;
+      }
+
+      // --- WooCommerce path ---
       const connected = isWooConnected();
       setIsLive(connected);
 
       if (!connected) {
-        // Use mock data
-        const mockMap: Record<DataType, unknown[]> = {
-          orders: mockOrders,
-          products: mockProducts,
-          customers: mockCustomers,
-          discounts: mockDiscounts,
-          reviews: mockReviews,
-          categories: mockCategories,
-        };
         if (!cancelled) {
           setData(mockMap[type] as T[]);
           setLoading(false);
@@ -234,15 +271,6 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load data");
-          // Fall back to mock on error
-          const mockMap: Record<DataType, unknown[]> = {
-            orders: mockOrders,
-            products: mockProducts,
-            customers: mockCustomers,
-            discounts: mockDiscounts,
-            reviews: mockReviews,
-            categories: mockCategories,
-          };
           setData(mockMap[type] as T[]);
           setLoading(false);
         }

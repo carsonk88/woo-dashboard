@@ -1,5 +1,6 @@
 "use client";
 import { isWooConnected } from "@/lib/woo-api";
+import { isWixConnected, getClientPlatform } from "@/lib/wix-api";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -164,8 +165,13 @@ const navItems: NavItem[] = [
 export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
   const [connected, setConnected] = useState(false);
+  const [platform, setPlatform] = useState<"woocommerce" | "wix" | null>(null);
   const { theme, toggle } = useTheme();
-  useEffect(() => { setConnected(isWooConnected()); }, []);
+  useEffect(() => {
+    const p = getClientPlatform();
+    setPlatform(p);
+    setConnected(p === "wix" ? isWixConnected() : isWooConnected());
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -278,25 +284,29 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose
         </button>
 
         <div className="text-xs mb-2 text-center" style={{ color: connected ? "var(--accent-green-bright)" : "var(--text-subtle)" }}>
-          {connected ? "● Live Data" : "○ Demo Mode"}
+          {connected
+            ? `● Live Data${platform === "wix" ? " (Wix)" : ""}`
+            : "○ Demo Mode"}
         </div>
-        <Link
-          href="/settings"
-          className="block w-full text-center text-xs py-2 px-3 rounded-md font-medium transition-all"
-          style={{
-            backgroundColor: "var(--badge-shipped-bg)",
-            color: "var(--accent-green-bright)",
-            border: "1px solid var(--badge-shipped-border)",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--hover-faint)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--badge-shipped-bg)";
-          }}
-        >
-          Connect WooCommerce
-        </Link>
+        {platform !== "wix" && (
+          <Link
+            href="/settings"
+            className="block w-full text-center text-xs py-2 px-3 rounded-md font-medium transition-all"
+            style={{
+              backgroundColor: "var(--badge-shipped-bg)",
+              color: "var(--accent-green-bright)",
+              border: "1px solid var(--badge-shipped-border)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--hover-faint)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--badge-shipped-bg)";
+            }}
+          >
+            {connected ? "WooCommerce Settings" : "Connect WooCommerce"}
+          </Link>
+        )}
       </div>
     </aside>
   );

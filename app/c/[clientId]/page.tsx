@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase, Client } from "@/lib/supabase";
-import { saveWooCredentials } from "@/lib/woo-api";
+import { saveWooCredentials, clearWooCredentials } from "@/lib/woo-api";
+import { saveWixCredentials, clearWixCredentials, setClientPlatform } from "@/lib/wix-api";
 import Sidebar from "@/components/Sidebar";
 import {
   RefreshCw,
@@ -38,17 +39,20 @@ export default function ClientDashboard() {
       const c = data as Client;
       setClient(c);
 
-      // Save WooCommerce credentials to localStorage so useWooData picks them up
-      saveWooCredentials({
-        url: c.store_url,
-        consumerKey: c.woo_consumer_key,
-        consumerSecret: c.woo_consumer_secret,
-      });
+      const isWixClient = !!(c.wix_site_id && c.wix_api_key) && !c.woo_consumer_key;
 
-      // Save Wix credentials if present
-      if (c.wix_site_id && c.wix_api_key) {
-        localStorage.setItem("wix_site_id", c.wix_site_id);
-        localStorage.setItem("wix_api_key", c.wix_api_key);
+      if (isWixClient) {
+        setClientPlatform("wix");
+        clearWooCredentials();
+        saveWixCredentials({ siteId: c.wix_site_id!, apiKey: c.wix_api_key! });
+      } else {
+        setClientPlatform("woocommerce");
+        clearWixCredentials();
+        saveWooCredentials({
+          url: c.store_url,
+          consumerKey: c.woo_consumer_key,
+          consumerSecret: c.woo_consumer_secret,
+        });
       }
 
       setLoading(false);
