@@ -16,6 +16,7 @@ import {
   Copy,
   Check,
   Lock,
+  Rocket,
 } from "lucide-react";
 
 const AGENCY_PASSWORD = process.env.NEXT_PUBLIC_AGENCY_PASSWORD || "admin2024";
@@ -75,6 +76,7 @@ function AddClientModal({
     notes: "",
   });
   const [saving, setSaving] = useState(false);
+  const [savingStep, setSavingStep] = useState<"db" | "deploy" | "">("") ;
   const [error, setError] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [showWixKey, setShowWixKey] = useState(false);
@@ -93,7 +95,10 @@ function AddClientModal({
       return;
     }
     setSaving(true);
+    setSavingStep("db");
     setError("");
+
+    // Step 1: Insert into Supabase
     const { data, error: err } = await supabase.from("clients").insert([
       {
         name: form.name,
@@ -107,14 +112,55 @@ function AddClientModal({
         wix_api_key: platform === "wix" ? form.wix_api_key : null,
       },
     ]).select("id").single();
-    setSaving(false);
+
     if (err || !data) {
+      setSaving(false);
+      setSavingStep("");
       setError(err?.message || "Failed to create client.");
       return;
     }
+
+    const clientId = data.id;
     onAdded();
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    setCreatedUrl(`${origin}/c/${data.id}`);
+
+    // Step 2: Deploy to Vercel
+    setSavingStep("deploy");
+    let deployedUrl: string | null = null;
+
+    try {
+      const deployRes = await fetch("/api/deploy-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, clientName: form.name }),
+      });
+      const deployData = await deployRes.json();
+
+      if (deployRes.ok && deployData.url) {
+        deployedUrl = deployData.url;
+        // Save URL and project ID back to Supabase
+        await supabase
+          .from("clients")
+          .update({
+            dashboard_url: deployData.url,
+            vercel_project_id: deployData.projectId,
+          })
+          .eq("id", clientId);
+      } else {
+        // Vercel deploy failed — fall back to internal URL
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        deployedUrl = `${origin}/c/${clientId}`;
+        setError(`Vercel deploy failed: ${deployData.error || "unknown error"}. Using internal URL instead.`);
+      }
+    } catch {
+      // Network error — fall back to internal URL
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      deployedUrl = `${origin}/c/${clientId}`;
+      setError("Could not reach deploy API. Using internal URL instead.");
+    }
+
+    setSaving(false);
+    setSavingStep("");
+    setCreatedUrl(deployedUrl);
   }
 
   function copyUrl() {
@@ -142,10 +188,10 @@ function AddClientModal({
             <Check size={24} style={{ color: "var(--accent-green-bright)" }} />
           </div>
           <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>
-            Dashboard Created!
+            Dashboard Deployed!
           </h2>
           <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>
-            Share this unique URL with your client
+            A dedicated Vercel deployment was created — share this URL with your client
           </p>
           <div
             className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-4 text-left"
@@ -449,8 +495,16 @@ function AddClientModal({
               className="w-full py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
             >
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
-              {saving ? "Creating..." : "Create Client Dashboard"}
+              {saving ? (
+                <RefreshCw size={14} className="animate-spin" />
+              ) : (
+                <Rocket size={14} />
+              )}
+              {savingStep === "db"
+                ? "Saving client..."
+                : savingStep === "deploy"
+                ? "Deploying to Vercel..."
+                : "Create & Deploy Dashboard"}
             </button>
           </form>
         )}
@@ -467,7 +521,8 @@ function ClientCard({
   onDelete: (id: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const dashboardUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/c/${client.id}`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const dashboardUrl = client.dashboard_url || `${origin}/c/${client.id}`;
 
   function copyLink() {
     navigator.clipboard.writeText(dashboardUrl);
@@ -500,11 +555,21 @@ function ClientCard({
             {client.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {client.name}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {client.name}
+              </p>
+              {client.wix_site_id && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#60a5fa" }}
+                >
+                  Wix
+                </span>
+              )}
+            </div>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {hostname}
+              {client.dashboard_url ? new URL(client.dashboard_url).hostname : hostname}
             </p>
           </div>
         </div>
@@ -558,7 +623,7 @@ function ClientCard({
 
       <div className="flex gap-2">
         <a
-          href={`/c/${client.id}`}
+          href={dashboardUrl}
           target="_blank"
           rel="noreferrer"
           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors"

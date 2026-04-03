@@ -18,4 +18,6 @@ export interface Client {
   last_synced: string | null;
   wix_site_id: string | null;
   wix_api_key: string | null;
+  dashboard_url: string | null;
+  vercel_project_id: string | null;
 }
