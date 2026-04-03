@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Save, CheckCircle, Eye, EyeOff, RefreshCw, Package, ShoppingCart, Users, Tag } from "lucide-react";
 import { saveWooCredentials, loadWooCredentials } from "@/lib/woo-api";
+import SyncStatusPanel from "./sync-status";
 
 type SettingsTab =
   | "payment"
@@ -514,6 +515,8 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+
+        <SyncStatusPanel />
 
         {/* Main content with left nav */}
         <div className="grid grid-cols-[200px_1fr] gap-6">
