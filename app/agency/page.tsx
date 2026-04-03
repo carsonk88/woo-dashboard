@@ -78,9 +78,11 @@ function AddClientModal({
   const [saving, setSaving] = useState(false);
   const [savingStep, setSavingStep] = useState<"db" | "deploy" | "">("") ;
   const [error, setError] = useState("");
+  const [deployError, setDeployError] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [showWixKey, setShowWixKey] = useState(false);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [isVercelUrl, setIsVercelUrl] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -137,6 +139,7 @@ function AddClientModal({
 
       if (deployRes.ok && deployData.url) {
         deployedUrl = deployData.url;
+        setIsVercelUrl(true);
         // Save URL and project ID back to Supabase
         await supabase
           .from("clients")
@@ -149,13 +152,13 @@ function AddClientModal({
         // Vercel deploy failed — fall back to internal URL
         const origin = typeof window !== "undefined" ? window.location.origin : "";
         deployedUrl = `${origin}/c/${clientId}`;
-        setError(`Vercel deploy failed: ${deployData.error || "unknown error"}. Using internal URL instead.`);
+        setDeployError(deployData.error || "Unknown error from Vercel API.");
       }
-    } catch {
+    } catch (e) {
       // Network error — fall back to internal URL
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       deployedUrl = `${origin}/c/${clientId}`;
-      setError("Could not reach deploy API. Using internal URL instead.");
+      setDeployError(e instanceof Error ? e.message : "Could not reach deploy API.");
     }
 
     setSaving(false);
@@ -183,16 +186,26 @@ function AddClientModal({
         >
           <div
             className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ backgroundColor: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)" }}
+            style={{
+              backgroundColor: isVercelUrl ? "rgba(22,163,74,0.15)" : "rgba(234,179,8,0.15)",
+              border: `1px solid ${isVercelUrl ? "rgba(22,163,74,0.3)" : "rgba(234,179,8,0.3)"}`,
+            }}
           >
-            <Check size={24} style={{ color: "var(--accent-green-bright)" }} />
+            <Check size={24} style={{ color: isVercelUrl ? "var(--accent-green-bright)" : "#eab308" }} />
           </div>
           <h2 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>
-            Dashboard Deployed!
+            {isVercelUrl ? "Dashboard Deployed!" : "Client Created"}
           </h2>
-          <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>
-            A dedicated Vercel deployment was created — share this URL with your client
+          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+            {isVercelUrl
+              ? "A dedicated Vercel deployment was created — share this URL with your client"
+              : "Saved to Supabase. Vercel deploy failed — using internal URL for now."}
           </p>
+          {deployError && (
+            <p className="text-[11px] px-3 py-2 rounded-lg mb-3 text-left font-mono" style={{ backgroundColor: "rgba(234,179,8,0.1)", color: "#eab308", border: "1px solid rgba(234,179,8,0.2)" }}>
+              {deployError}
+            </p>
+          )}
           <div
             className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-4 text-left"
             style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
