@@ -360,7 +360,7 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders, isLive } = useWooData<any>("orders", { per_page: 50 });
+  const { data: orders, isLive, error: dataError } = useWooData<any>("orders", { per_page: 50 });
 
   const handleSync = () => {
     setSyncing(true);
@@ -440,6 +440,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="p-6">
+        {dataError && (
+          <div
+            className="flex items-start gap-3 rounded-xl px-4 py-3 mb-4 text-xs"
+            style={{ backgroundColor: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", color: "#eab308" }}
+          >
+            <span className="font-semibold flex-shrink-0">API Error — showing demo data:</span>
+            <span className="font-mono break-all">{dataError}</span>
+          </div>
+        )}
         <SiteAccessCard mode={siteMode} setMode={setSiteMode} />
         <LiveBar />
         <RevenueSection orders={orders} />
