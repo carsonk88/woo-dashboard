@@ -211,9 +211,10 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
             if (!res.ok || raw.error) {
               setError(raw.error || "Wix API error");
               setData(mockMap[type] as T[]);
+              setIsLive(false);
             } else {
               setIsLive(true);
-              setData(raw as T[]);
+              setData(Array.isArray(raw) ? raw as T[] : mockMap[type] as T[]);
             }
             setLoading(false);
           }
