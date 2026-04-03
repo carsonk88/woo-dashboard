@@ -264,8 +264,10 @@ export default function AnalyticsPage() {
   const { data: orders, isLive } = useWooData<any>("orders", { per_page: 100 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: discounts } = useWooData<any>("discounts", { per_page: 50 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: products } = useWooData<any>("products", { per_page: 100 });
 
-  const { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates } = useMemo(() => {
+  const { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates, liveCategoryData } = useMemo(() => {
     const days = parseInt(timeRange);
     const cutoff = new Date(Date.now() - days * 86400000);
 
@@ -346,8 +348,27 @@ export default function AnalyticsPage() {
       .slice(0, 5)
       .map(([state, d]) => ({ state, ...d }));
 
-    return { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates };
-  }, [orders, timeRange, isLive]);
+    // Revenue by category — cross-reference order items with products
+    const productCategoryMap: Record<string, string> = {};
+    for (const p of products) {
+      productCategoryMap[p.name] = p.category || "Uncategorized";
+    }
+    const catRevMap: Record<string, number> = {};
+    for (const o of filtered) {
+      for (const item of (o.items || [])) {
+        const cat = productCategoryMap[item.name] || "Uncategorized";
+        const rev = parseFloat(String(item.price).replace("$", "")) * (item.quantity || 1) || 0;
+        catRevMap[cat] = (catRevMap[cat] || 0) + rev;
+      }
+    }
+    const catTotal = Object.values(catRevMap).reduce((a, b) => a + b, 0) || 1;
+    const liveCategoryData = Object.entries(catRevMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([category, revenue]) => ({ category, revenue, pct: Math.round((revenue / catTotal) * 100) }));
+
+    return { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates, liveCategoryData };
+  }, [orders, timeRange, isLive, products]);
 
   const totalRevenue = chartData.reduce((acc: number, d: any) => acc + d.revenue, 0);
   const totalOrders = chartData.reduce((acc: number, d: any) => acc + d.orders, 0);
@@ -615,7 +636,9 @@ export default function AnalyticsPage() {
             <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
               Revenue by Category
             </h3>
-            {revenueByCategory.map((c, i) => (
+            {(isLive ? liveCategoryData : revenueByCategory).length === 0 ? (
+              <p className="text-sm py-4" style={{ color: "var(--text-muted)" }}>No category data in this period</p>
+            ) : (isLive ? liveCategoryData : revenueByCategory).map((c, i) => (
               <div key={i} className="mb-3">
                 <div className="flex justify-between mb-1">
                   <span className="text-xs" style={{ color: "var(--text-primary)" }}>
@@ -633,8 +656,8 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Customer Cohorts + Affiliate Leaderboard */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Customer Cohorts + Affiliate Leaderboard — demo only */}
+        {!isLive && <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div
             className="rounded-xl p-5"
             style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
@@ -732,7 +755,7 @@ export default function AnalyticsPage() {
                 ))}
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Promo Code Performance */}
         <div
