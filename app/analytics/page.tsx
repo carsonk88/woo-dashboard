@@ -261,7 +261,7 @@ const customerCohorts = [
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("30");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders } = useWooData<any>("orders", { per_page: 100 });
+  const { data: orders, isLive } = useWooData<any>("orders", { per_page: 100 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: discounts } = useWooData<any>("discounts", { per_page: 50 });
 
@@ -338,14 +338,16 @@ export default function AnalyticsPage() {
       stateMap[state].orders += 1;
       stateMap[state].customers += 1;
     }
-    const liveStateData = Object.keys(stateMap).length > 0 ? stateMap : STATE_DATA;
+    const liveStateData = !isLive
+      ? STATE_DATA
+      : Object.keys(stateMap).length > 0 ? stateMap : {};
     const topStates = Object.entries(liveStateData)
       .sort((a, b) => b[1].revenue - a[1].revenue)
       .slice(0, 5)
       .map(([state, d]) => ({ state, ...d }));
 
     return { chartData, topProducts, orderStatusCounts, trendingProducts, liveStateData, topStates };
-  }, [orders, timeRange]);
+  }, [orders, timeRange, isLive]);
 
   const totalRevenue = chartData.reduce((acc: number, d: any) => acc + d.revenue, 0);
   const totalOrders = chartData.reduce((acc: number, d: any) => acc + d.orders, 0);
@@ -471,26 +473,38 @@ export default function AnalyticsPage() {
             <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
               Revenue by State
             </h2>
-            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Hover a state for details</p>
-            <USMapTile stateData={liveStateData} />
-            <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-              <div className="space-y-1.5">
-                {topStates.map((state, i) => (
-                  <div key={state.state} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] w-4 text-right font-mono" style={{ color: "var(--text-subtle)" }}>{i + 1}</span>
-                      <span className="text-xs" style={{ color: "var(--text-primary)" }}>{state.state}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{state.orders} orders</span>
-                      <span className="text-xs font-mono font-semibold" style={{ color: "var(--accent-green-bright)" }}>
-                        ${(state.revenue / 1000).toFixed(1)}k
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+              {isLive ? "Based on shipping addresses from your orders" : "Hover a state for details"}
+            </p>
+            {isLive && Object.keys(liveStateData).length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  No orders with shipping data found
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <USMapTile stateData={liveStateData} />
+                <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+                  <div className="space-y-1.5">
+                    {topStates.map((state, i) => (
+                      <div key={state.state} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] w-4 text-right font-mono" style={{ color: "var(--text-subtle)" }}>{i + 1}</span>
+                          <span className="text-xs" style={{ color: "var(--text-primary)" }}>{state.state}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{state.orders} orders</span>
+                          <span className="text-xs font-mono font-semibold" style={{ color: "var(--accent-green-bright)" }}>
+                            ${(state.revenue / 1000).toFixed(1)}k
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right column */}
