@@ -38,6 +38,8 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   badge?: string;
+  featureKey?: string;
+  wixHidden?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -65,6 +67,8 @@ const navItems: NavItem[] = [
     label: "Reviews",
     href: "/reviews",
     icon: <Star size={15} />,
+    featureKey: "reviews",
+    wixHidden: true,
   },
   {
     label: "COA",
@@ -85,21 +89,29 @@ const navItems: NavItem[] = [
     label: "Promo & Affiliates",
     href: "/promo",
     icon: <Gift size={15} />,
+    featureKey: "promo",
+    wixHidden: true,
   },
   {
     label: "Affiliates",
     href: "/affiliates",
     icon: <Link2 size={15} />,
+    featureKey: "affiliates",
+    wixHidden: true,
   },
   {
     label: "Affiliate Orders",
     href: "/affiliate-orders",
     icon: <ShoppingBag size={15} />,
+    featureKey: "affiliate-orders",
+    wixHidden: true,
   },
   {
     label: "Discounts",
     href: "/discounts",
     icon: <Percent size={15} />,
+    featureKey: "discounts",
+    wixHidden: true,
   },
   {
     label: "Abandoned Carts",
@@ -110,11 +122,15 @@ const navItems: NavItem[] = [
         <X size={8} className="absolute -top-0.5 -right-1" />
       </span>
     ),
+    featureKey: "abandoned-carts",
+    wixHidden: true,
   },
   {
     label: "Shipping",
     href: "/shipping",
     icon: <Truck size={15} />,
+    featureKey: "shipping",
+    wixHidden: true,
   },
   {
     label: "Analytics",
@@ -162,7 +178,7 @@ const navItems: NavItem[] = [
   },
 ];
 
-export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
+export default function Sidebar({ isOpen, onClose, enabledFeatures }: { isOpen?: boolean; onClose?: () => void; enabledFeatures?: string[] }) {
   const pathname = usePathname();
   const [connected, setConnected] = useState(false);
   const [platform, setPlatform] = useState<"woocommerce" | "wix" | null>(null);
@@ -177,6 +193,13 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
+
+  const visibleItems = navItems.filter((item) => {
+    if (platform === "wix" && item.wixHidden) {
+      return (enabledFeatures ?? []).includes(item.featureKey!);
+    }
+    return true;
+  });
 
   return (
     <aside
@@ -204,7 +227,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-3">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.href);
           return (
             <Link

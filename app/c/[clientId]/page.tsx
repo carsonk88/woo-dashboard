@@ -100,7 +100,7 @@ export default function ClientDashboard() {
     <div className="flex min-h-screen" style={{ backgroundColor: "var(--bg-page)" }}>
       {/* Sidebar with client label */}
       <div className="relative">
-        <Sidebar />
+        <Sidebar enabledFeatures={client?.enabled_features ?? []} />
         {client && (
           <div
             className="fixed left-0 bottom-16 w-[220px] px-3 py-2 text-center"

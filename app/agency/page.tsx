@@ -75,6 +75,7 @@ function AddClientModal({
     wix_api_key: "",
     notes: "",
   });
+  const [enabledFeatures, setEnabledFeatures] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingStep, setSavingStep] = useState<"db" | "deploy" | "">("") ;
   const [error, setError] = useState("");
@@ -112,6 +113,7 @@ function AddClientModal({
         total_orders: 0,
         wix_site_id: platform === "wix" ? form.wix_site_id : null,
         wix_api_key: platform === "wix" ? form.wix_api_key : null,
+        enabled_features: enabledFeatures.length > 0 ? enabledFeatures : null,
       },
     ]).select("id").single();
 
@@ -478,6 +480,42 @@ function AddClientModal({
                   <p className="text-[11px] mt-1" style={{ color: "var(--text-subtle)" }}>
                     Generate under Wix API Keys Manager with eCommerce permissions
                   </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: "var(--text-muted)" }}>
+                    Optional Features
+                  </label>
+                  <p className="text-[11px] mb-2" style={{ color: "var(--text-subtle)" }}>
+                    Enable these if the client uses a third-party app for them. Otherwise they&apos;ll be hidden from the sidebar.
+                  </p>
+                  <div className="space-y-1.5">
+                    {[
+                      { key: "reviews", label: "Reviews", hint: "e.g. Judge.me, Yotpo" },
+                      { key: "discounts", label: "Discounts", hint: "Wix Coupons or third-party" },
+                      { key: "shipping", label: "Shipping", hint: "custom shipping methods" },
+                      { key: "abandoned-carts", label: "Abandoned Carts", hint: "cart recovery tool" },
+                      { key: "affiliates", label: "Affiliates", hint: "affiliate management app" },
+                      { key: "affiliate-orders", label: "Affiliate Orders", hint: "affiliate order tracking" },
+                      { key: "promo", label: "Promo & Affiliates", hint: "promotional campaigns" },
+                    ].map((f) => (
+                      <label
+                        key={f.key}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer"
+                        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={enabledFeatures.includes(f.key)}
+                          onChange={() => setEnabledFeatures((prev) =>
+                            prev.includes(f.key) ? prev.filter((k) => k !== f.key) : [...prev, f.key]
+                          )}
+                          className="rounded"
+                        />
+                        <span className="text-xs font-medium flex-1" style={{ color: "var(--text-primary)" }}>{f.label}</span>
+                        <span className="text-[10px]" style={{ color: "var(--text-subtle)" }}>{f.hint}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

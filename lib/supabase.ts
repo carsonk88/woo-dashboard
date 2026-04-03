@@ -20,4 +20,5 @@ export interface Client {
   wix_api_key: string | null;
   dashboard_url: string | null;
   vercel_project_id: string | null;
+  enabled_features: string[] | null;
 }
