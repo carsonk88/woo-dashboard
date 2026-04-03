@@ -1,0 +1,21 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export interface Client {
+  id: string;
+  name: string;
+  store_url: string;
+  woo_consumer_key: string;
+  woo_consumer_secret: string;
+  created_at: string;
+  notes: string | null;
+  monthly_revenue: number;
+  total_orders: number;
+  last_synced: string | null;
+  wix_site_id: string | null;
+  wix_api_key: string | null;
+}
