@@ -51,7 +51,7 @@ function normalizeWixOrder(o: any) {
       address1: addr.addressLine || addr.addressLine1 || "",
       address2: addr.addressLine2 || "",
       city: addr.city || "",
-      state: addr.subdivision || "",
+      state: (addr.subdivision || "").replace(/^[A-Z]+-/, ""),
       postcode: addr.postalCode || "",
     },
     tracking: "",

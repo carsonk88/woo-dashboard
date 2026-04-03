@@ -270,14 +270,14 @@ export default function AnalyticsPage() {
     const cutoff = new Date(Date.now() - days * 86400000);
 
     const filtered = orders.filter((o: any) => {
-      const d = o.date_raw || o.date;
+      const d = o.isoDate || o.date;
       return d && new Date(d) >= cutoff;
     });
 
     // Build chart data grouped by date
     const dateMap: Record<string, { revenue: number; orders: number }> = {};
     for (const o of filtered) {
-      const raw = o.date_raw || o.date || "";
+      const raw = o.isoDate || o.date || "";
       const dateKey = String(raw).slice(0, 10);
       if (!dateKey) continue;
       const d = new Date(dateKey);
