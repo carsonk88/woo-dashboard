@@ -46,16 +46,20 @@ export default function InventoryPage() {
   // Normalize products to inventory shape
   const inventory = useMemo(() => {
     return products.map((p: any) => {
-      const stock = typeof p.stock === "number" ? p.stock : (p.stock_quantity ?? 0);
-      const status = stock === 0 ? "out_of_stock" : stock < 10 ? "low_stock" : "in_stock";
+      const managesStock = p.manage_stock === true;
+      const stock = managesStock ? (p.stock ?? 0) : null;
+      const stockStatus = p.stock_status || "instock";
+      const status = !managesStock
+        ? (stockStatus === "outofstock" ? "out_of_stock" : "in_stock")
+        : (stock === 0 ? "out_of_stock" : (stock !== null && stock < 10) ? "low_stock" : "in_stock");
       return {
         id: p.id,
         product: p.name,
         sku: p.sku || "—",
         category: p.category || "Uncategorized",
         combined: stock,
-        stockTampa: null,
-        stockMelbourne: null,
+        stockLabel: managesStock ? String(stock) : (stockStatus === "instock" ? "In Stock" : "Out of Stock"),
+        price: p.price || 0,
         costPerUnit: null,
         status,
       };
@@ -165,7 +169,7 @@ export default function InventoryPage() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["PRODUCT", "SKU", "CATEGORY", ...(isLive ? [] : ["TAMPA", "MELBOURNE"]), "STOCK", ...(isLive ? [] : ["COST/UNIT"]), "STATUS", ""].map(
+                    {["PRODUCT", "SKU", "CATEGORY", "PRICE", "STOCK", "STATUS", ""].map(
                       (h) => (
                         <th
                           key={h}
@@ -201,20 +205,11 @@ export default function InventoryPage() {
                           {item.category}
                         </span>
                       </td>
-                      {!isLive && (
-                        <td className="px-3 py-3">
-                          <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                            {item.stockTampa}
-                          </span>
-                        </td>
-                      )}
-                      {!isLive && (
-                        <td className="px-3 py-3">
-                          <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                            {item.stockMelbourne}
-                          </span>
-                        </td>
-                      )}
+                      <td className="px-3 py-3">
+                        <span className="text-xs font-mono" style={{ color: "var(--accent-green-bright)" }}>
+                          ${(Number(item.price) || 0).toFixed(2)}
+                        </span>
+                      </td>
                       <td className="px-3 py-3">
                         <span
                           className="text-sm font-mono font-semibold"
@@ -222,21 +217,14 @@ export default function InventoryPage() {
                             color:
                               item.combined === 0
                                 ? "var(--accent-red)"
-                                : item.combined < 10
+                                : item.combined !== null && item.combined < 10
                                 ? "#facc15"
                                 : "var(--text-primary)",
                           }}
                         >
-                          {item.combined}
+                          {item.stockLabel}
                         </span>
                       </td>
-                      {!isLive && (
-                        <td className="px-3 py-3">
-                          <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                            ${item.costPerUnit?.toFixed(2) ?? "—"}
-                          </span>
-                        </td>
-                      )}
                       <td className="px-3 py-3">
                         <StockBadge status={item.status} />
                       </td>

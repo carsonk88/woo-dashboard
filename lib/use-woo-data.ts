@@ -66,6 +66,9 @@ function normalizeOrder(o: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeProduct(p: any) {
+  const managesStock = p.manage_stock === true;
+  const stockQty = managesStock ? (p.stock_quantity ?? 0) : null;
+  const stockStatus = p.stock_status || "instock";
   return {
     id: String(p.id),
     name: p.name,
@@ -75,7 +78,10 @@ function normalizeProduct(p: any) {
     sale_price: p.sale_price ? parseFloat(p.sale_price) : null,
     status: p.status === "publish" ? "active" : "draft",
     sku: p.sku || "",
-    stock: p.stock_quantity ?? 0,
+    stock: stockQty,
+    stock_status: stockStatus,
+    manage_stock: managesStock,
+    total_sales: p.total_sales || 0,
     sizes: p.attributes?.find((a: any) => a.name === "Size" || a.name === "Sizes")?.options || [],
     image: p.images?.[0]?.src || null,
   };
@@ -110,24 +116,27 @@ function normalizeCategory(c: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeCustomer(c: any) {
+  const fullName = `${c.first_name || ""} ${c.last_name || ""}`.trim();
+  const billingName = `${c.billing?.first_name || ""} ${c.billing?.last_name || ""}`.trim();
+  const displayName = fullName || billingName || c.username || c.email || "Unknown";
+  const orderCount = c.orders_count || 0;
+  const totalSpent = parseFloat(c.total_spent || "0");
   return {
     id: String(c.id),
-    name: `${c.first_name} ${c.last_name}`.trim() || c.email,
-    email: c.email,
-    orders: c.orders_count || 0,
-    lifetime_value: `$${parseFloat(c.total_spent || "0").toFixed(2)}`,
-    avg_order:
-      c.orders_count > 0
-        ? `$${(parseFloat(c.total_spent || "0") / c.orders_count).toFixed(2)}`
-        : "$0.00",
-    last_order: c.last_order?.date_created
-      ? new Date(c.last_order.date_created).toLocaleDateString("en-US", {
+    name: displayName,
+    email: c.email || c.billing?.email || "",
+    orders: orderCount,
+    lifetime_value: `$${totalSpent.toFixed(2)}`,
+    avg_order: orderCount > 0 ? (totalSpent / orderCount) : 0,
+    last_order: c.date_modified
+      ? new Date(c.date_modified).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
         })
       : "—",
-    account: c.role === "customer" ? "Registered" : "Guest",
+    account: c.is_paying_customer ? "Paying" : c.role === "customer" ? "Registered" : "Guest",
+    date_created: c.date_created || "",
   };
 }
 

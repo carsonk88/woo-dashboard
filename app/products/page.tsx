@@ -357,12 +357,12 @@ export default function ProductsPage() {
                         color:
                           product.stock === 0
                             ? "var(--accent-red)"
-                            : product.stock < 10
+                            : product.stock !== null && product.stock < 10
                             ? "#facc15"
                             : "var(--text-primary)",
                       }}
                     >
-                      {product.stock}
+                      {product.stock !== null ? product.stock : (product.stock_status === "instock" ? "In Stock" : "Out")}
                     </span>
                   </td>
                   <td className="px-4 py-3">

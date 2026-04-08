@@ -151,11 +151,7 @@ export default function CustomersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                      {new Date(customer.last_order).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {customer.last_order || "—"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
