@@ -129,6 +129,18 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "conversation_id required" }, { status: 400 });
     }
 
+    // Verify conversation belongs to this client
+    const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
+    if (clientId) {
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("id", conversation_id)
+        .eq("client_id", clientId)
+        .single();
+      if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     // Update status if provided (close/archive)
     if (status) {
       await supabase.from("conversations").update({ status, updated_at: new Date().toISOString() }).eq("id", conversation_id);
