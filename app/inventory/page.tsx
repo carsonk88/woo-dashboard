@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Search, Archive, AlertTriangle, XCircle, DollarSign } from "lucide-react";
-import { inventory as mockInventory } from "@/lib/mock-data";
+// Mock data removed — uses live WooCommerce data only
 import { useWooData } from "@/lib/use-woo-data";
 
 function StockBadge({ status }: { status: string }) {
@@ -45,7 +45,6 @@ export default function InventoryPage() {
 
   // Normalize products to inventory shape
   const inventory = useMemo(() => {
-    if (!isLive) return mockInventory;
     return products.map((p: any) => {
       const stock = typeof p.stock === "number" ? p.stock : (p.stock_quantity ?? 0);
       const status = stock === 0 ? "out_of_stock" : stock < 10 ? "low_stock" : "in_stock";
@@ -75,7 +74,7 @@ export default function InventoryPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalSKUs = inventory.length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalValue = isLive ? 0 : (inventory as any[]).reduce((acc: number, item: any) => acc + (item.combined || 0) * (item.costPerUnit || 0), 0);
+  const totalValue = (inventory as any[]).reduce((acc: number, item: any) => acc + (item.combined || 0) * (item.costPerUnit || 0), 0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lowStockCount = (inventory as any[]).filter((i: any) => i.status === "low_stock").length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -265,7 +265,7 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
 
       if (!connected) {
         if (!cancelled) {
-          setData(mockMap[type] as T[]);
+          setData([] as T[]);
           setLoading(false);
         }
         return;
@@ -313,7 +313,7 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load data");
-          setData(mockMap[type] as T[]);
+          setData([] as T[]);
           setLoading(false);
         }
       }
