@@ -316,13 +316,13 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                      ${product.price.toFixed(2)}
+                      ${(Number(product.price) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     {product.sale_price ? (
                       <span className="text-sm font-mono" style={{ color: "var(--accent-green-bright)" }}>
-                        ${product.sale_price.toFixed(2)}
+                        ${(Number(product.sale_price) || 0).toFixed(2)}
                       </span>
                     ) : (
                       <span className="text-xs" style={{ color: "var(--text-subtle)" }}>—</span>

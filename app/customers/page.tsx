@@ -146,7 +146,7 @@ export default function CustomersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                      ${customer.avg_order.toFixed(2)}
+                      ${(Number(customer.avg_order) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">

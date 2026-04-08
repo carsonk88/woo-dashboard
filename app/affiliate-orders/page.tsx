@@ -142,12 +142,12 @@ export default function AffiliateOrdersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-mono font-semibold" style={{ color: "var(--accent-green-bright)" }}>
-                      ${order.total.toFixed(2)}
+                      ${(Number(order.total) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-mono" style={{ color: "#facc15" }}>
-                      ${order.commission.toFixed(2)}
+                      ${(Number(order.commission) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">

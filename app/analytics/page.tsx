@@ -226,7 +226,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
         </p>
         {payload.map((p, i) => (
           <p key={i} className="text-xs font-mono" style={{ color: p.color }}>
-            {p.name}: {p.name === "revenue" ? `$${p.value.toFixed(0)}` : p.value}
+            {p.name}: {p.name === "revenue" ? `$${(Number(p.value) || 0).toFixed(0)}` : p.value}
           </p>
         ))}
       </div>

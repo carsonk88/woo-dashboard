@@ -181,7 +181,7 @@ function RevenueSection({ orders }: { orders: any[] }) {
             Revenue
           </p>
           <p className="text-3xl font-semibold font-mono tabular-nums" style={{ color: "var(--text-primary)" }}>
-            ${current.revenue.toFixed(2)}
+            ${(Number(current.revenue) || 0).toFixed(2)}
           </p>
           <div className="flex items-center gap-1 mt-1">
             {revDiff >= 0 ? (
@@ -469,7 +469,7 @@ export default function DashboardPage() {
           />
           <MiniStatCard
             title="Avg Order Value"
-            value={`$${stats.avgOrderValue.toFixed(2)}`}
+            value={`$${(Number(stats.avgOrderValue) || 0).toFixed(2)}`}
             sub="Last 50 orders"
             icon={<ShoppingCart size={14} />}
             color="var(--accent-green-bright)"
@@ -500,7 +500,7 @@ export default function DashboardPage() {
           />
           <MiniStatCard
             title="Affiliate Payouts"
-            value={`$${stats.affiliatePayouts.toFixed(2)}`}
+            value={`$${(Number(stats.affiliatePayouts) || 0).toFixed(2)}`}
             sub="This month"
             icon={<DollarSign size={14} />}
             color="#facc15"

@@ -374,12 +374,12 @@ export default function AdvertisingPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-mono" style={{ color: "#f87171" }}>
-                        ${campaign.spend.toFixed(0)}
+                        ${(Number(campaign.spend) || 0).toFixed(0)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-mono" style={{ color: "var(--accent-green-bright)" }}>
-                        ${campaign.revenue.toFixed(0)}
+                        ${(Number(campaign.revenue) || 0).toFixed(0)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -389,7 +389,7 @@ export default function AdvertisingPage() {
                           color: campaign.roas >= 3 ? "var(--accent-green-bright)" : campaign.roas >= 2 ? "#facc15" : "#f87171",
                         }}
                       >
-                        {campaign.roas.toFixed(2)}x
+                        {(Number(campaign.roas) || 0).toFixed(2)}x
                       </span>
                     </td>
                     <td className="px-4 py-3">
