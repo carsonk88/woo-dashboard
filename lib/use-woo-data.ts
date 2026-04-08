@@ -32,33 +32,34 @@ const mockCategories = [
 function normalizeOrder(o: any) {
   const firstName = o.billing?.first_name || "";
   const lastName = o.billing?.last_name || "";
+  const shippingAddr = [
+    o.shipping?.address_1,
+    o.shipping?.city,
+    o.shipping?.state,
+    o.shipping?.postcode,
+  ].filter(Boolean).join(", ") || "N/A";
+
   return {
     id: String(o.id),
     number: `#${o.number || o.id}`,
-    customer: {
-      name: `${firstName} ${lastName}`.trim() || "Guest",
-      email: o.billing?.email || "",
-    },
-    total: `$${parseFloat(o.total || "0").toFixed(2)}`,
+    customer: `${firstName} ${lastName}`.trim() || "Guest",
+    email: o.billing?.email || "",
+    total: parseFloat(o.total || "0"),
     status: o.status,
     date: new Date(o.date_created).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     isoDate: o.date_created || "",
     items: (o.line_items || []).map((i: any) => ({
       name: i.name,
-      quantity: i.quantity,
-      price: `$${parseFloat(i.price || "0").toFixed(2)}`,
+      qty: i.quantity,
+      price: parseFloat(i.price || "0"),
     })),
-    shippingAddress: {
-      address1: o.shipping?.address_1 || "",
-      address2: o.shipping?.address_2 || "",
-      city: o.shipping?.city || "",
-      state: o.shipping?.state || "",
-      postcode: o.shipping?.postcode || "",
+    shipping: {
+      address: shippingAddr,
+      method: o.shipping_lines?.[0]?.method_title || "Standard",
+      tracking: o.meta_data?.find((m: any) => m.key === "_tracking_number")?.value || "",
     },
-    tracking: o.meta_data?.find((m: any) => m.key === "_tracking_number")?.value || "",
-    shippingMethod: o.shipping_lines?.[0]?.method_title || "Standard",
     shippingCost: `$${parseFloat(o.shipping_total || "0").toFixed(2)}`,
-    discount: o.discount_total !== "0.00" ? `-$${parseFloat(o.discount_total).toFixed(2)}` : null,
+    discount: o.discount_total !== "0.00" ? `-$${(Number(o.discount_total) || 0).toFixed(2)}` : null,
     paymentMethod: o.payment_method_title || "",
   };
 }
