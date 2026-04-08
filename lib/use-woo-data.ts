@@ -128,8 +128,8 @@ function normalizeCustomer(c: any) {
     orders: orderCount,
     lifetime_value: `$${totalSpent.toFixed(2)}`,
     avg_order: orderCount > 0 ? (totalSpent / orderCount) : 0,
-    last_order: c.date_modified
-      ? new Date(c.date_modified).toLocaleDateString("en-US", {
+    last_order: c._last_order_date
+      ? new Date(c._last_order_date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
@@ -292,8 +292,31 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
           raw = (await api.getProducts(params)) as any[];
           raw = raw.map(normalizeProduct);
         } else if (type === "customers") {
-          raw = (await api.getCustomers(params)) as any[];
-          raw = raw.map(normalizeCustomer);
+          // Fetch customers AND orders to compute real stats
+          const [rawCustomers, rawOrders] = await Promise.all([
+            api.getCustomers({ ...params, per_page: 100 }) as Promise<any[]>,
+            api.getOrders({ per_page: 100, status: "any" }) as Promise<any[]>,
+          ]);
+          // Build order stats per customer email
+          const orderStats: Record<string, { count: number; total: number; lastDate: string }> = {};
+          for (const o of rawOrders) {
+            const email = (o.billing?.email || "").toLowerCase();
+            if (!email) continue;
+            if (!orderStats[email]) orderStats[email] = { count: 0, total: 0, lastDate: "" };
+            orderStats[email].count++;
+            orderStats[email].total += parseFloat(o.total || "0");
+            if (o.date_created > orderStats[email].lastDate) orderStats[email].lastDate = o.date_created;
+          }
+          raw = rawCustomers.map((c: any) => {
+            const email = (c.email || "").toLowerCase();
+            const stats = orderStats[email];
+            return normalizeCustomer({
+              ...c,
+              orders_count: stats?.count || c.orders_count || 0,
+              total_spent: stats ? String(stats.total) : c.total_spent || "0",
+              _last_order_date: stats?.lastDate || null,
+            });
+          });
         } else if (type === "discounts") {
           raw = (await api.getCoupons(params)) as any[];
           raw = raw.map(normalizeCoupon);

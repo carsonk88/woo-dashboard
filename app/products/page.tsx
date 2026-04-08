@@ -288,10 +288,21 @@ export default function ProductsPage() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-lg flex-shrink-0"
-                        style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}
-                      />
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-9 h-9 rounded-lg flex-shrink-0 object-cover"
+                          style={{ border: "1px solid var(--border)" }}
+                        />
+                      ) : (
+                        <div
+                          className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px]"
+                          style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                        >
+                          —
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                           {product.name}

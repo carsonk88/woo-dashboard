@@ -61,6 +61,7 @@ export default function InventoryPage() {
         stockLabel: managesStock ? String(stock) : (stockStatus === "instock" ? "In Stock" : "Out of Stock"),
         price: p.price || 0,
         costPerUnit: null,
+        image: p.image || null,
         status,
       };
     });
@@ -191,9 +192,16 @@ export default function InventoryPage() {
                       style={{ borderBottom: "1px solid var(--row-border)" }}
                     >
                       <td className="px-3 py-3">
-                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                          {item.product.length > 22 ? item.product.slice(0, 22) + "…" : item.product}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          {item.image ? (
+                            <img src={item.image} alt={item.product} className="w-7 h-7 rounded object-cover flex-shrink-0" style={{ border: "1px solid var(--border)" }} />
+                          ) : (
+                            <div className="w-7 h-7 rounded flex-shrink-0" style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }} />
+                          )}
+                          <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                            {item.product.length > 22 ? item.product.slice(0, 22) + "…" : item.product}
+                          </p>
+                        </div>
                       </td>
                       <td className="px-3 py-3">
                         <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
