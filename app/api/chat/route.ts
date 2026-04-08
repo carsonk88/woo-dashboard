@@ -145,6 +145,39 @@ export async function PATCH(req: NextRequest) {
         .from("conversations")
         .update({ unread: 0, updated_at: new Date().toISOString() })
         .eq("id", conversation_id);
+
+      // Send email via WordPress WP Mail SMTP
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("email, name, client_id")
+        .eq("id", conversation_id)
+        .single();
+
+      if (conv?.email) {
+        // Get the store URL from the client record
+        const { data: client } = await supabase
+          .from("clients")
+          .select("store_url")
+          .eq("id", conv.client_id)
+          .single();
+
+        const storeUrl = client?.store_url || "https://reviveamino.com";
+
+        try {
+          await fetch(`${storeUrl}/wp-json/dashboard/v1/send-reply`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              secret: "rv-amino-dash-2026",
+              to: conv.email,
+              subject: `Reply from ${storeUrl.replace("https://", "").replace("http://", "")}`,
+              message: reply,
+            }),
+          });
+        } catch {
+          // Email send failed — reply is still saved in Supabase
+        }
+      }
     }
 
     return NextResponse.json({ success: true });
