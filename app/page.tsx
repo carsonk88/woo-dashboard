@@ -87,26 +87,21 @@ function RevenueSection({ orders }: { orders: any[] }) {
   const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
   const last24hCutoff = new Date(Date.now() - 86400000);
 
-  const todayOrders = orders.filter((o) => {
-    const d = o.date_raw || o.date;
-    return d && String(d).startsWith(today);
-  });
-  const yesterdayOrders = orders.filter((o) => {
-    const d = o.date_raw || o.date;
-    return d && String(d).startsWith(yesterday);
-  });
+  const getDate = (o: any) => o.isoDate || o.date_raw || o.date || "";
+
+  const todayOrders = orders.filter((o) => String(getDate(o)).startsWith(today));
+  const yesterdayOrders = orders.filter((o) => String(getDate(o)).startsWith(yesterday));
   const last24hOrders = orders.filter((o) => {
-    const d = o.date_raw || o.date;
-    if (!d) return false;
-    return new Date(d) >= last24hCutoff;
+    const d = getDate(o);
+    return d && new Date(d) >= last24hCutoff;
   });
 
-  const sumRevenue = (arr: any[]) => arr.reduce((s, o) => s + parseFloat(String(o.total).replace("$", "")), 0);
+  const sumRevenue = (arr: any[]) => arr.reduce((s, o) => s + (typeof o.total === 'number' ? o.total : parseFloat(String(o.total).replace("$", "")) || 0), 0);
 
   const data = {
-    today: { revenue: todayOrders.length ? sumRevenue(todayOrders) : orders.length ? sumRevenue(orders.slice(0, Math.ceil(orders.length * 0.15))) : 0, orders: todayOrders.length || Math.ceil(orders.length * 0.15) },
-    yesterday: { revenue: yesterdayOrders.length ? sumRevenue(yesterdayOrders) : orders.length ? sumRevenue(orders.slice(Math.ceil(orders.length * 0.15), Math.ceil(orders.length * 0.35))) : 0, orders: yesterdayOrders.length || Math.ceil(orders.length * 0.2) },
-    last24h: { revenue: last24hOrders.length ? sumRevenue(last24hOrders) : orders.length ? sumRevenue(orders.slice(0, Math.ceil(orders.length * 0.2))) : 0, orders: last24hOrders.length || Math.ceil(orders.length * 0.2) },
+    today: { revenue: sumRevenue(todayOrders), orders: todayOrders.length },
+    yesterday: { revenue: sumRevenue(yesterdayOrders), orders: yesterdayOrders.length },
+    last24h: { revenue: sumRevenue(last24hOrders), orders: last24hOrders.length },
   };
   const current = data[period];
   const prev = data.yesterday;
