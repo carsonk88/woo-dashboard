@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
-  Circle,
   TrendingUp,
   TrendingDown,
   ShoppingCart,
@@ -16,11 +15,7 @@ import {
   ExternalLink,
   CheckCircle,
 } from "lucide-react";
-import {
-  topTrafficSources,
-  liveVisitors,
-  revenueStats as mockRevenueStats,
-} from "@/lib/mock-data";
+// Mock data imports removed — dashboard uses live WooCommerce data only
 import { useWooData } from "@/lib/use-woo-data";
 import OrdersTable from "@/components/OrdersTable";
 
@@ -77,44 +72,7 @@ function SiteAccessCard({ mode, setMode }: { mode: SiteMode; setMode: (m: SiteMo
   );
 }
 
-function LiveBar() {
-  const liveCount = 12;
-  const hotVisitors = liveVisitors.filter((v) => v.intent === "hot");
-  return (
-    <div
-      className="flex items-center gap-3 rounded-xl px-4 py-3 mb-4 flex-wrap"
-      style={{ backgroundColor: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.18)" }}
-    >
-      <div className="flex items-center gap-1.5">
-        <Circle size={8} className="fill-green-500 text-green-500 pulse-green" />
-        <span className="text-xs font-semibold" style={{ color: "var(--accent-green-bright)" }}>
-          {liveCount} Live
-        </span>
-      </div>
-      <div className="w-px h-4" style={{ backgroundColor: "rgba(37,99,235,0.25)" }} />
-      <div className="flex gap-2 flex-wrap">
-        {hotVisitors.slice(0, 3).map((v) => (
-          <span
-            key={v.id}
-            className="text-[11px] px-2.5 py-1 rounded-full font-medium"
-            style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.2)" }}
-          >
-            {v.pageLabel}
-          </span>
-        ))}
-        {liveVisitors.slice(0, 2).map((v) => (
-          <span
-            key={`loc-${v.id}`}
-            className="text-[11px] px-2.5 py-1 rounded-full"
-            style={{ backgroundColor: "var(--hover-icon)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-          >
-            {v.location}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
+// LiveBar removed — was using mock visitor data
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function RevenueSection({ orders }: { orders: any[] }) {
@@ -330,29 +288,7 @@ function TopProductsWidget({ orders }: { orders: any[] }) {
   );
 }
 
-function TrafficSourcesWidget() {
-  const max = topTrafficSources[0]?.visits || 1;
-  return (
-    <div className="space-y-2.5">
-      {topTrafficSources.map((s, i) => (
-        <div key={i}>
-          <div className="flex justify-between mb-1">
-            <span className="text-xs" style={{ color: "var(--text-primary)" }}>{s.source}</span>
-            <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-              {s.visits.toLocaleString()}
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full" style={{ backgroundColor: "var(--bg-elevated)" }}>
-            <div
-              className="h-1.5 rounded-full"
-              style={{ width: `${(s.visits / max) * 100}%`, backgroundColor: "#818cf8" }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// TrafficSourcesWidget removed — was using mock data
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -376,19 +312,17 @@ export default function DashboardPage() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
     const last7days = orders
-      .filter((o: any) => { const d = o.date_raw || o.date; return d && new Date(d) >= sevenDaysAgo; })
-      .reduce((s: number, o: any) => s + parseFloat(String(o.total).replace("$", "")), 0);
+      .filter((o: any) => { const d = o.isoDate || o.date_raw || o.date; return d && new Date(d) >= sevenDaysAgo; })
+      .reduce((s: number, o: any) => s + (typeof o.total === 'number' ? o.total : parseFloat(String(o.total).replace("$", "")) || 0), 0);
     const thisMonth = orders
-      .filter((o: any) => { const d = o.date_raw || o.date; return d && new Date(d) >= thirtyDaysAgo; })
-      .reduce((s: number, o: any) => s + parseFloat(String(o.total).replace("$", "")), 0);
+      .filter((o: any) => { const d = o.isoDate || o.date_raw || o.date; return d && new Date(d) >= thirtyDaysAgo; })
+      .reduce((s: number, o: any) => s + (typeof o.total === 'number' ? o.total : parseFloat(String(o.total).replace("$", "")) || 0), 0);
     return {
       avgOrderValue,
       pending,
       processing,
-      last7days: last7days || (isLive ? 0 : mockRevenueStats.last7days),
-      thisMonth: thisMonth || (isLive ? 0 : mockRevenueStats.thisMonth),
-      affiliatePayouts: mockRevenueStats.affiliatePayouts,
-      pendingAffiliates: mockRevenueStats.pendingAffiliates,
+      last7days,
+      thisMonth,
     };
   }, [orders, isLive]);
 
@@ -408,7 +342,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Monday, March 30, 2026
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -450,7 +384,6 @@ export default function DashboardPage() {
           </div>
         )}
         <SiteAccessCard mode={siteMode} setMode={setSiteMode} />
-        <LiveBar />
         <RevenueSection orders={orders} />
 
         {/* Stats Row 1 */}
@@ -458,7 +391,7 @@ export default function DashboardPage() {
           <MiniStatCard
             title="Last 7 Days"
             value={`$${stats.last7days.toLocaleString()}`}
-            sub="+12.4% vs prev week"
+            sub="Rolling 7 days"
             icon={<TrendingUp size={14} />}
           />
           <MiniStatCard
@@ -498,20 +431,6 @@ export default function DashboardPage() {
             icon={<Package size={14} />}
             color="#c084fc"
           />
-          <MiniStatCard
-            title="Affiliate Payouts"
-            value={`$${(Number(stats.affiliatePayouts) || 0).toFixed(2)}`}
-            sub="This month"
-            icon={<DollarSign size={14} />}
-            color="#facc15"
-          />
-          <MiniStatCard
-            title="Pending Affiliates"
-            value={String(stats.pendingAffiliates)}
-            sub="Awaiting approval"
-            icon={<Users size={14} />}
-            color="#60a5fa"
-          />
         </div>
 
         {/* Main layout: Orders + Right sidebar */}
@@ -546,16 +465,6 @@ export default function DashboardPage() {
                 Top Products
               </h3>
               <TopProductsWidget orders={orders} />
-            </div>
-
-            <div
-              className="rounded-xl p-4"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
-            >
-              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
-                Top Traffic Sources
-              </h3>
-              <TrafficSourcesWidget />
             </div>
 
             <div
