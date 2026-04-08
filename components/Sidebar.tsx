@@ -81,11 +81,6 @@ const navItems: NavItem[] = [
     icon: <Users size={15} />,
   },
   {
-    label: "Inventory",
-    href: "/inventory",
-    icon: <Archive size={15} />,
-  },
-  {
     label: "Promo Codes",
     href: "/discounts",
     icon: <Gift size={15} />,
