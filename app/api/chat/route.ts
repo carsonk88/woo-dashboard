@@ -82,7 +82,17 @@ export async function GET(req: NextRequest) {
   const conversationId = req.nextUrl.searchParams.get("conversation_id");
 
   if (conversationId) {
-    // Get messages for a specific conversation
+    // Verify conversation belongs to this client
+    if (clientId) {
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("id", conversationId)
+        .eq("client_id", clientId)
+        .single();
+      if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     const { data, error } = await supabase
       .from("messages")
       .select("*")
@@ -93,13 +103,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   }
 
-  // Get all conversations for this client
+  // Get conversations for this client only — never return all clients' data
+  if (!clientId) {
+    return NextResponse.json({ error: "client_id required" }, { status: 400 });
+  }
+
   const query = supabase
     .from("conversations")
     .select("*")
+    .eq("client_id", clientId)
     .order("updated_at", { ascending: false });
-
-  if (clientId) query.eq("client_id", clientId);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
