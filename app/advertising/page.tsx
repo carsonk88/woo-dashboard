@@ -332,36 +332,9 @@ export default function AdvertisingPage() {
               </div>
             )}
 
-            {/* Dashboard area — shows when accounts are connected */}
+            {/* Dashboard area */}
             {connectedCount > 0 ? (
-              <div>
-                <div
-                  className="rounded-xl p-6 text-center"
-                  style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
-                >
-                  <DollarSign size={32} className="mx-auto mb-3" style={{ color: "var(--accent-green-bright)" }} />
-                  <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
-                    Ad Accounts Connected
-                  </h3>
-                  <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                    Your credentials are saved. Ad performance data, spend, ROAS, and campaign metrics will appear here once the API integration is live.
-                  </p>
-                  <div className="flex justify-center gap-3">
-                    {Object.entries(accounts).map(([platform, acct]) => {
-                      const p = AD_PLATFORMS.find((a) => a.platform === platform)!;
-                      return (
-                        <span
-                          key={platform}
-                          className="text-[11px] font-medium px-3 py-1.5 rounded-full"
-                          style={{ backgroundColor: `${p.color}15`, color: p.color, border: `1px solid ${p.color}30` }}
-                        >
-                          {p.label}: {acct.id}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              <AdPerformanceDashboard accounts={accounts} />
             ) : (
               <div
                 className="rounded-xl p-8 text-center"
@@ -379,6 +352,188 @@ export default function AdvertisingPage() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// --- Ad Performance Dashboard ---
+function AdPerformanceDashboard({ accounts }: { accounts: Record<string, { id: string; token: string }> }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [datePreset, setDatePreset] = useState("last_7d");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setError("");
+      // For now, fetch Meta if connected
+      if (accounts.meta) {
+        try {
+          const res = await fetch(`/api/ads?platform=meta&date_preset=${datePreset}`);
+          const json = await res.json();
+          if (json.error) { setError(json.error); }
+          else { setData(json); }
+        } catch { setError("Failed to fetch ad data"); }
+      }
+      setLoading(false);
+    }
+    load();
+  }, [datePreset, accounts]);
+
+  const periods = [
+    { key: "today", label: "Today" },
+    { key: "yesterday", label: "Yesterday" },
+    { key: "last_7d", label: "Last 7 Days" },
+    { key: "last_14d", label: "Last 14 Days" },
+    { key: "last_30d", label: "Last 30 Days" },
+    { key: "this_month", label: "This Month" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw size={16} className="animate-spin" style={{ color: "var(--text-muted)" }} />
+        <span className="text-xs ml-2" style={{ color: "var(--text-muted)" }}>Loading ad performance...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <p className="text-sm" style={{ color: "#f87171" }}>{error}</p>
+      </div>
+    );
+  }
+
+  const s = data?.summary || { spend: 0, impressions: 0, clicks: 0, cpc: 0, cpm: 0, ctr: 0, conversions: 0, revenue: 0, roas: 0 };
+  const campaigns = data?.campaigns || [];
+  const hasData = s.spend > 0 || campaigns.length > 0;
+
+  return (
+    <div>
+      {/* Date filter */}
+      <div className="flex gap-1 mb-4 flex-wrap">
+        {periods.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setDatePreset(p.key)}
+            className="text-[11px] px-3 py-1.5 rounded-md font-medium"
+            style={
+              datePreset === p.key
+                ? { backgroundColor: "var(--accent-green)", color: "#fff" }
+                : { backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+            }
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {!hasData ? (
+        <div className="rounded-xl p-8 text-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+          <DollarSign size={32} className="mx-auto mb-3" style={{ color: "var(--text-subtle)" }} />
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>No Ad Data Yet</h3>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Your {data?.account?.name || "Meta Ads"} account is connected but has no campaigns or spend for this period. Data will appear once campaigns are running.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            {[
+              { label: "Ad Spend", value: `$${s.spend.toFixed(2)}`, icon: <DollarSign size={14} />, color: "#f87171" },
+              { label: "Revenue", value: `$${s.revenue.toFixed(2)}`, icon: <TrendingUp size={14} />, color: "var(--accent-green-bright)" },
+              { label: "ROAS", value: `${s.roas.toFixed(2)}x`, icon: <TrendingUp size={14} />, color: s.roas >= 3 ? "var(--accent-green-bright)" : "#facc15" },
+              { label: "Conversions", value: String(s.conversions), icon: <MousePointer size={14} />, color: "#60a5fa" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl p-4"
+                style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{stat.label}</span>
+                  <span style={{ color: stat.color }}>{stat.icon}</span>
+                </div>
+                <p className="text-xl font-semibold font-mono" style={{ color: stat.color }}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {[
+              { label: "Impressions", value: s.impressions.toLocaleString() },
+              { label: "Clicks", value: s.clicks.toLocaleString() },
+              { label: "CTR", value: `${s.ctr.toFixed(2)}%` },
+              { label: "CPC", value: `$${s.cpc.toFixed(2)}` },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl p-4"
+                style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{stat.label}</p>
+                <p className="text-lg font-semibold font-mono" style={{ color: "var(--text-primary)" }}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Campaigns Table */}
+          {campaigns.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Campaigns</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                      {["CAMPAIGN", "STATUS", "SPEND", "IMPRESSIONS", "CLICKS", "CTR", "CONVERSIONS", "REVENUE", "ROAS"].map((h) => (
+                        <th key={h} className="text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-subtle)" }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaigns.map((c: any) => (
+                      <tr key={c.id} className="table-row-hover" style={{ borderBottom: "1px solid var(--row-border)" }}>
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                            {c.name.length > 30 ? c.name.slice(0, 30) + "…" : c.name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                            style={{
+                              backgroundColor: c.status === "active" ? "rgba(14,168,121,0.12)" : "rgba(255,255,255,0.06)",
+                              color: c.status === "active" ? "var(--accent-green-bright)" : "var(--text-muted)",
+                              border: `1px solid ${c.status === "active" ? "rgba(14,168,121,0.3)" : "var(--border)"}`,
+                            }}
+                          >
+                            {c.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: "#f87171" }}>${c.spend.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: "var(--text-primary)" }}>{c.impressions.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: "var(--text-primary)" }}>{c.clicks.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: "var(--text-primary)" }}>{c.ctr.toFixed(2)}%</td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: "#60a5fa" }}>{c.conversions}</td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: "var(--accent-green-bright)" }}>${c.revenue.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-mono" style={{ color: c.roas >= 3 ? "var(--accent-green-bright)" : "#facc15" }}>{c.roas.toFixed(2)}x</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
