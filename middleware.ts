@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(req: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
 
-  // Only redirect on client-specific deployments
+  // Only apply auth redirect on client-specific deployments
   if (!clientId) return NextResponse.next();
 
   const { pathname } = req.nextUrl;
 
-  // Pass through: login page, API routes, Next.js internals, static files, agency
+  // Always allow: login page, API routes, Next.js internals, static files, agency
   if (
     pathname === "/login" ||
     pathname.startsWith("/api/") ||
@@ -19,18 +19,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect root to login (middleware can't read sessionStorage, so client page handles auth check)
+  // Redirect root to login
   if (pathname === "/") {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Allow /c/{clientId} through — the page component checks auth via sessionStorage
-  if (pathname.startsWith(`/c/${clientId}`)) {
-    return NextResponse.next();
-  }
-
+  // Allow /c/{clientId} through — LayoutShell handles client-side auth check
   return NextResponse.next();
 }
 
