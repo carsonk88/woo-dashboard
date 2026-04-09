@@ -10,7 +10,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const noSidebar = pathname.startsWith("/agency") || pathname.startsWith("/c/");
+  const noSidebar = pathname.startsWith("/agency") || pathname.startsWith("/c/") || pathname === "/login";
 
   const isClientDeployment = !!process.env.NEXT_PUBLIC_CLIENT_ID;
   const isPublicPage = pathname === "/login" || pathname === "/agency" || pathname.startsWith("/api/");
