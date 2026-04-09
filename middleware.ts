@@ -8,9 +8,9 @@ export function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
-  // Pass through: already on client page, API routes, Next.js internals, static files
+  // Pass through: login page, API routes, Next.js internals, static files, agency
   if (
-    pathname.startsWith(`/c/${clientId}`) ||
+    pathname === "/login" ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
@@ -19,12 +19,16 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect root and all other pages to /c/{clientId}
-  // so credentials get initialized from Supabase on first load
+  // Redirect root to login (middleware can't read sessionStorage, so client page handles auth check)
   if (pathname === "/") {
     const url = req.nextUrl.clone();
-    url.pathname = `/c/${clientId}`;
+    url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Allow /c/{clientId} through — the page component checks auth via sessionStorage
+  if (pathname.startsWith(`/c/${clientId}`)) {
+    return NextResponse.next();
   }
 
   return NextResponse.next();

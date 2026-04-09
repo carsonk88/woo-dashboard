@@ -74,6 +74,7 @@ function AddClientModal({
     wix_site_id: "",
     wix_api_key: "",
     notes: "",
+    dashboard_password: "",
   });
   const [enabledFeatures, setEnabledFeatures] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -109,6 +110,7 @@ function AddClientModal({
         woo_consumer_key: platform === "woocommerce" ? form.woo_consumer_key : "",
         woo_consumer_secret: platform === "woocommerce" ? form.woo_consumer_secret : "",
         notes: form.notes || null,
+        dashboard_password: form.dashboard_password || null,
         monthly_revenue: 0,
         total_orders: 0,
         wix_site_id: platform === "wix" ? form.wix_site_id : null,
@@ -522,6 +524,23 @@ function AddClientModal({
 
             <div>
               <label className="text-xs font-medium block mb-1" style={{ color: "var(--text-muted)" }}>
+                Dashboard Password
+              </label>
+              <input
+                type="text"
+                placeholder="Set a login password for the client"
+                value={form.dashboard_password}
+                onChange={(e) => setForm({ ...form, dashboard_password: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={inputStyle}
+              />
+              <p className="text-[10px] mt-1" style={{ color: "var(--text-subtle)" }}>
+                Client will use this password to access their dashboard
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: "var(--text-muted)" }}>
                 Notes (optional)
               </label>
               <textarea
@@ -665,6 +684,13 @@ function ClientCard({
           </p>
         </div>
       </div>
+
+      {(client as any).dashboard_password && (
+        <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md" style={{ backgroundColor: "var(--bg-elevated)" }}>
+          <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Password:</span>
+          <span className="text-xs font-mono" style={{ color: "var(--text-primary)" }}>{(client as any).dashboard_password}</span>
+        </div>
+      )}
 
       {client.notes && (
         <p className="text-xs mb-3 px-2 py-1.5 rounded-md" style={{ color: "var(--text-muted)", backgroundColor: "var(--bg-elevated)" }}>
