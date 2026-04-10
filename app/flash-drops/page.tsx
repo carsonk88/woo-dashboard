@@ -273,13 +273,13 @@ export default function FlashDropsPage() {
                     <div className="text-right">
                       <div className="flex items-baseline gap-1.5 justify-end mb-1">
                         <span className="text-lg font-bold font-mono" style={{ color: "var(--accent-green-bright)" }}>
-                          ${drop.salePrice.toFixed(2)}
+                          ${(Number(drop.salePrice) || 0).toFixed(2)}
                         </span>
                         <span
                           className="text-xs font-mono line-through"
                           style={{ color: "var(--text-subtle)" }}
                         >
-                          ${drop.originalPrice.toFixed(2)}
+                          ${(Number(drop.originalPrice) || 0).toFixed(2)}
                         </span>
                       </div>
                       <CountdownTimer endTime={drop.endTime} urgent />
@@ -414,7 +414,7 @@ export default function FlashDropsPage() {
                     <p className="text-xs mb-1" style={{ color: "var(--text-subtle)" }}>Starts in</p>
                     <CountdownTimer endTime={drop.startTime} />
                     <p className="text-xs mt-1 font-mono" style={{ color: "var(--text-muted)" }}>
-                      ${drop.salePrice.toFixed(2)} · {drop.stock} units
+                      ${(Number(drop.salePrice) || 0).toFixed(2)} · {drop.stock} units
                     </p>
                   </div>
                 </div>

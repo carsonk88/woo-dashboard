@@ -1,17 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const noSidebar = pathname.startsWith("/agency") || pathname.startsWith("/c/");
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const noSidebar = pathname.startsWith("/agency") || pathname.startsWith("/c/") || pathname === "/login";
+
+  const isClientDeployment = !!process.env.NEXT_PUBLIC_CLIENT_ID;
+  const isPublicPage = pathname === "/login" || pathname === "/agency" || pathname.startsWith("/api/");
+
+  // Auth gate for client deployments
+  useEffect(() => {
+    if (!isClientDeployment || isPublicPage) {
+      setAuthed(true);
+      return;
+    }
+    const isAuthed = sessionStorage.getItem("dash_auth") === "true";
+    if (!isAuthed) {
+      router.replace("/login");
+    }
+    setAuthed(isAuthed);
+  }, [pathname, isClientDeployment, isPublicPage, router]);
 
   // Close sidebar on navigation
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
+
+  // Show nothing while checking auth (prevents flash of dashboard)
+  if (isClientDeployment && !isPublicPage && authed !== true) {
+    return <div className="w-full min-h-screen" style={{ backgroundColor: "#050f1e" }} />;
+  }
 
   if (noSidebar) {
     return <div className="w-full min-h-screen">{children}</div>;

@@ -288,10 +288,21 @@ export default function ProductsPage() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-lg flex-shrink-0"
-                        style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}
-                      />
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-9 h-9 rounded-lg flex-shrink-0 object-cover"
+                          style={{ border: "1px solid var(--border)" }}
+                        />
+                      ) : (
+                        <div
+                          className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px]"
+                          style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                        >
+                          —
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                           {product.name}
@@ -316,13 +327,13 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                      ${product.price.toFixed(2)}
+                      ${(Number(product.price) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     {product.sale_price ? (
                       <span className="text-sm font-mono" style={{ color: "var(--accent-green-bright)" }}>
-                        ${product.sale_price.toFixed(2)}
+                        ${(Number(product.sale_price) || 0).toFixed(2)}
                       </span>
                     ) : (
                       <span className="text-xs" style={{ color: "var(--text-subtle)" }}>—</span>
@@ -357,12 +368,12 @@ export default function ProductsPage() {
                         color:
                           product.stock === 0
                             ? "var(--accent-red)"
-                            : product.stock < 10
+                            : product.stock !== null && product.stock < 10
                             ? "#facc15"
                             : "var(--text-primary)",
                       }}
                     >
-                      {product.stock}
+                      {product.stock !== null ? product.stock : (product.stock_status === "instock" ? "In Stock" : "Out")}
                     </span>
                   </td>
                   <td className="px-4 py-3">

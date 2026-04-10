@@ -1,331 +1,357 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Circle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Circle, Archive, RefreshCw, Mail, Phone, X, MessageSquare } from "lucide-react";
 
 interface Conversation {
-  id: number;
+  id: string;
   name: string;
   email: string;
-  lastMessage: string;
-  time: string;
+  phone: string | null;
+  status: "open" | "closed" | "archived";
   unread: number;
-  status: "online" | "away" | "offline";
+  created_at: string;
+  updated_at: string;
 }
 
 interface Message {
-  id: number;
+  id: string;
+  conversation_id: string;
   sender: "customer" | "admin";
-  text: string;
-  time: string;
+  body: string;
+  created_at: string;
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: 1,
-    name: "James Harrington",
-    email: "james.h@gmail.com",
-    lastMessage: "When will my order ship?",
-    time: "2m ago",
-    unread: 2,
-    status: "online",
-  },
-  {
-    id: 2,
-    name: "Sarah Mitchell",
-    email: "s.mitchell@outlook.com",
-    lastMessage: "Thank you so much!",
-    time: "15m ago",
-    unread: 0,
-    status: "away",
-  },
-  {
-    id: 3,
-    name: "Michael Torres",
-    email: "mtorres@yahoo.com",
-    lastMessage: "Do you have a 5000mg option?",
-    time: "1h ago",
-    unread: 1,
-    status: "online",
-  },
-  {
-    id: 4,
-    name: "Emily Chen",
-    email: "emily.c@icloud.com",
-    lastMessage: "Can I change my shipping address?",
-    time: "3h ago",
-    unread: 0,
-    status: "offline",
-  },
-  {
-    id: 5,
-    name: "Robert Davis",
-    email: "rdavis@gmail.com",
-    lastMessage: "My dog loves the treats!",
-    time: "5h ago",
-    unread: 0,
-    status: "offline",
-  },
-];
-
-const mockMessages: Record<number, Message[]> = {
-  1: [
-    { id: 1, sender: "customer", text: "Hi, I placed an order yesterday (#EVO-17751400001) and was wondering when it will ship?", time: "10:24 AM" },
-    { id: 2, sender: "admin", text: "Hi James! I can see your order. It's currently being processed and should ship out today or tomorrow with USPS Priority.", time: "10:26 AM" },
-    { id: 3, sender: "customer", text: "Great, thank you! Any tracking number yet?", time: "10:27 AM" },
-    { id: 4, sender: "customer", text: "When will my order ship?", time: "10:28 AM" },
-  ],
-  3: [
-    { id: 1, sender: "customer", text: "Hello, do you have a 5000mg tincture option?", time: "9:15 AM" },
-    { id: 2, sender: "customer", text: "Do you have a 5000mg option?", time: "9:16 AM" },
-  ],
-};
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export default function LiveChatPage() {
-  const [chatEnabled, setChatEnabled] = useState(true);
-  const [selectedConv, setSelectedConv] = useState<number>(1);
-  const [inputText, setInputText] = useState("");
-  const [localMessages, setLocalMessages] = useState<Record<number, Message[]>>(mockMessages);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [reply, setReply] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [filter, setFilter] = useState<"open" | "closed" | "all">("open");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const messages = localMessages[selectedConv] || [];
-  const conversation = mockConversations.find((c) => c.id === selectedConv);
+  const selected = conversations.find((c) => c.id === selectedId) || null;
 
-  const sendMessage = () => {
-    const text = inputText.trim();
-    if (!text) return;
-    const newMsg: Message = {
-      id: Date.now(),
-      sender: "admin",
-      text,
-      time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-    };
-    setLocalMessages((prev) => ({
-      ...prev,
-      [selectedConv]: [...(prev[selectedConv] || []), newMsg],
-    }));
-    setInputText("");
-  };
+  async function loadConversations() {
+    try {
+      const res = await fetch("/api/chat");
+      const data = await res.json();
+      if (Array.isArray(data)) setConversations(data);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }
+
+  async function loadMessages(convId: string) {
+    try {
+      const res = await fetch(`/api/chat?conversation_id=${convId}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setMessages(data);
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    loadConversations();
+    const interval = setInterval(loadConversations, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) {
+      loadMessages(selectedId);
+      const interval = setInterval(() => loadMessages(selectedId), 5000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function handleSend() {
+    if (!reply.trim() || !selectedId) return;
+    setSending(true);
+    try {
+      await fetch("/api/chat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: selectedId, reply: reply.trim() }),
+      });
+      setReply("");
+      await loadMessages(selectedId);
+      await loadConversations();
+    } catch { /* ignore */ }
+    setSending(false);
+  }
+
+  async function updateStatus(convId: string, status: "closed" | "archived") {
+    await fetch("/api/chat", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: convId, status }),
+    });
+    await loadConversations();
+    if (selectedId === convId) {
+      setSelectedId(null);
+      setMessages([]);
+    }
+  }
+
+  const filtered = conversations.filter((c) => {
+    if (filter === "all") return true;
+    return c.status === filter;
+  });
+
+  const totalUnread = conversations.filter((c) => c.status === "open" && c.unread > 0).length;
 
   return (
-    <div style={{ backgroundColor: "var(--bg-page)", height: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Top bar */}
+    <div style={{ backgroundColor: "var(--bg-page)", minHeight: "100vh" }}>
+      {/* Header */}
       <div
-        className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+        className="flex items-center justify-between px-6 py-4 sticky top-0 z-30"
         style={{
           backgroundColor: "var(--bg-header)",
           backdropFilter: "blur(12px)",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
             Live Chat
           </h1>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Customer support conversations
-          </p>
+          {totalUnread > 0 && (
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
+            >
+              {totalUnread} new
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Chat {chatEnabled ? "ON" : "OFF"}
-          </span>
-          <button
-            onClick={() => setChatEnabled(!chatEnabled)}
-            className="relative w-11 h-6 rounded-full transition-colors"
-            style={{ backgroundColor: chatEnabled ? "var(--accent-green)" : "var(--bg-elevated)" }}
-          >
-            <div
-              className="absolute top-0.5 w-5 h-5 rounded-full transition-all"
-              style={{
-                backgroundColor: "#fff",
-                left: chatEnabled ? "calc(100% - 1.375rem)" : "0.125rem",
-              }}
-            />
-          </button>
-        </div>
+        <button
+          onClick={loadConversations}
+          className="p-2 rounded-lg transition-colors"
+          style={{ color: "var(--text-muted)" }}
+          title="Refresh"
+        >
+          <RefreshCw size={15} />
+        </button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Conversation list */}
+      <div className="flex" style={{ height: "calc(100vh - 57px)" }}>
+        {/* Left: Conversation List */}
         <div
-          className="w-[280px] flex-shrink-0 overflow-y-auto"
-          style={{ borderRight: "1px solid var(--border)" }}
+          className="w-[320px] flex-shrink-0 flex flex-col"
+          style={{ borderRight: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}
         >
-          {mockConversations.map((conv) => (
-            <button
-              key={conv.id}
-              onClick={() => setSelectedConv(conv.id)}
-              className="w-full text-left px-4 py-4 transition-colors"
-              style={{
-                backgroundColor: selectedConv === conv.id ? "rgba(37,99,235,0.08)" : "transparent",
-                borderBottom: "1px solid rgba(34,34,34,0.4)",
-                borderLeft: selectedConv === conv.id ? "2px solid var(--accent-green)" : "2px solid transparent",
-              }}
-              onMouseEnter={(e) => {
-                if (selectedConv !== conv.id)
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--hover-min)";
-              }}
-              onMouseLeave={(e) => {
-                if (selectedConv !== conv.id)
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <div className="relative flex-shrink-0">
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-                    style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
-                  >
-                    {conv.name.charAt(0)}
-                  </div>
-                  <div
-                    className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
-                    style={{
-                      backgroundColor:
-                        conv.status === "online"
-                          ? "#4ade80"
-                          : conv.status === "away"
-                          ? "#facc15"
-                          : "#555",
-                      borderColor: "var(--bg-sidebar)",
-                    }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <p
-                      className="text-xs font-semibold truncate"
-                      style={{
-                        color: selectedConv === conv.id ? "var(--accent-green-bright)" : "var(--text-primary)",
-                      }}
-                    >
-                      {conv.name}
-                    </p>
-                    <span className="text-[10px] flex-shrink-0 ml-1" style={{ color: "var(--text-subtle)" }}>
-                      {conv.time}
-                    </span>
-                  </div>
-                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                    {conv.lastMessage}
-                  </p>
-                </div>
-                {conv.unread > 0 && (
-                  <span
-                    className="flex-shrink-0 text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
-                  >
-                    {conv.unread}
-                  </span>
-                )}
+          <div className="flex gap-1 px-3 pt-3 pb-2">
+            {(["open", "closed", "all"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className="text-[11px] px-3 py-1.5 rounded-md font-medium capitalize"
+                style={
+                  filter === f
+                    ? { backgroundColor: "var(--accent-green)", color: "#fff" }
+                    : { color: "var(--text-muted)", backgroundColor: "var(--bg-elevated)" }
+                }
+              >
+                {f} {f === "open" && totalUnread > 0 ? `(${totalUnread})` : ""}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw size={16} className="animate-spin" style={{ color: "var(--text-muted)" }} />
               </div>
-            </button>
-          ))}
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <MessageSquare size={32} className="mx-auto mb-3" style={{ color: "var(--text-subtle)" }} />
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  No conversations yet
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-subtle)" }}>
+                  Messages from your contact form will appear here
+                </p>
+              </div>
+            ) : (
+              filtered.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => setSelectedId(conv.id)}
+                  className="w-full text-left px-4 py-3 transition-colors"
+                  style={{
+                    backgroundColor: selectedId === conv.id ? "var(--bg-elevated)" : "transparent",
+                    borderBottom: "1px solid var(--row-border)",
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Circle
+                        size={8}
+                        className={conv.status === "open" ? "fill-green-500 text-green-500" : "fill-gray-500 text-gray-500"}
+                      />
+                      <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        {conv.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px]" style={{ color: "var(--text-subtle)" }}>
+                        {timeAgo(conv.updated_at)}
+                      </span>
+                      {conv.unread > 0 && conv.status === "open" && (
+                        <span
+                          className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                          style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
+                        >
+                          {conv.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs mt-1 truncate" style={{ color: "var(--text-muted)" }}>
+                    {conv.email}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Chat window */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {conversation ? (
+        {/* Right: Message Thread */}
+        <div className="flex-1 flex flex-col">
+          {!selected ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <MessageSquare size={40} className="mx-auto mb-3" style={{ color: "var(--text-subtle)" }} />
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Select a conversation to view messages
+                </p>
+              </div>
+            </div>
+          ) : (
             <>
-              {/* Chat header */}
+              {/* Thread header */}
               <div
-                className="flex items-center gap-3 px-6 py-4 flex-shrink-0"
-                style={{ borderBottom: "1px solid var(--border)" }}
+                className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+                style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}
               >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-                  style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
-                >
-                  {conversation.name.charAt(0)}
-                </div>
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {conversation.name}
-                  </p>
-                  <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                    <Circle
-                      size={6}
-                      className={`fill-current ${conversation.status === "online" ? "text-green-400" : conversation.status === "away" ? "text-yellow-400" : "text-gray-500"}`}
-                    />
-                    {conversation.status.charAt(0).toUpperCase() + conversation.status.slice(1)} · {conversation.email}
-                  </p>
+                  <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {selected.name}
+                  </h2>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-xs flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                      <Mail size={10} /> {selected.email}
+                    </span>
+                    {selected.phone && (
+                      <span className="text-xs flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                        <Phone size={10} /> {selected.phone}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selected.status === "open" && (
+                    <button
+                      onClick={() => updateStatus(selected.id, "closed")}
+                      className="text-[11px] px-3 py-1.5 rounded-md font-medium flex items-center gap-1"
+                      style={{ backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                    >
+                      <X size={11} /> Close
+                    </button>
+                  )}
+                  <button
+                    onClick={() => updateStatus(selected.id, "archived")}
+                    className="text-[11px] px-3 py-1.5 rounded-md font-medium flex items-center gap-1"
+                    style={{ backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                  >
+                    <Archive size={11} /> Archive
+                  </button>
                 </div>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
                     className={`flex ${msg.sender === "admin" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className="max-w-[70%] rounded-2xl px-4 py-3"
+                      className="max-w-[70%] rounded-xl px-4 py-2.5"
                       style={
                         msg.sender === "admin"
-                          ? { backgroundColor: "var(--accent-green)", color: "#fff" }
-                          : { backgroundColor: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border)" }
+                          ? { backgroundColor: "var(--accent-green)", color: "#fff", borderBottomRightRadius: "4px" }
+                          : { backgroundColor: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border)", borderBottomLeftRadius: "4px" }
                       }
                     >
-                      <p className="text-sm">{msg.text}</p>
+                      <p className="text-sm leading-relaxed">{msg.body}</p>
                       <p
                         className="text-[10px] mt-1"
-                        style={{ color: msg.sender === "admin" ? "rgba(255,255,255,0.6)" : "var(--text-subtle)" }}
+                        style={{ color: msg.sender === "admin" ? "rgba(255,255,255,0.7)" : "var(--text-subtle)" }}
                       >
-                        {msg.time}
+                        {new Date(msg.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {" · "}
+                        {new Date(msg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </p>
                     </div>
                   </div>
                 ))}
+                <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
-              <div
-                className="flex items-end gap-3 p-4 flex-shrink-0"
-                style={{ borderTop: "1px solid var(--border)" }}
-              >
-                <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type a message..."
-                  rows={2}
-                  className="flex-1 resize-none rounded-xl px-4 py-3 text-sm outline-none"
-                  style={{
-                    backgroundColor: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    color: "var(--text-primary)",
-                  }}
-                  onFocus={(e) => {
-                    (e.target as HTMLTextAreaElement).style.borderColor = "var(--accent-green)";
-                  }}
-                  onBlur={(e) => {
-                    (e.target as HTMLTextAreaElement).style.borderColor = "var(--border)";
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                />
-                <button
-                  onClick={sendMessage}
-                  className="p-3 rounded-xl flex-shrink-0 transition-colors"
-                  style={{ backgroundColor: "var(--accent-green)", color: "#fff" }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1d4ed8";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--accent-green)";
-                  }}
+              {/* Reply input */}
+              {selected.status === "open" && (
+                <div
+                  className="px-5 py-3 flex-shrink-0"
+                  style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}
                 >
-                  <Send size={16} />
-                </button>
-              </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                      placeholder="Type a reply..."
+                      className="flex-1 px-4 py-2.5 rounded-lg text-sm outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-elevated)",
+                        color: "var(--text-primary)",
+                        border: "1px solid var(--border)",
+                      }}
+                    />
+                    <button
+                      onClick={handleSend}
+                      disabled={!reply.trim() || sending}
+                      className="px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                      style={{
+                        backgroundColor: reply.trim() ? "var(--accent-green)" : "var(--bg-elevated)",
+                        color: reply.trim() ? "#fff" : "var(--text-muted)",
+                        border: reply.trim() ? "none" : "1px solid var(--border)",
+                      }}
+                    >
+                      <Send size={14} />
+                      {sending ? "..." : "Send"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <p style={{ color: "var(--text-muted)" }}>Select a conversation</p>
-            </div>
           )}
         </div>
       </div>

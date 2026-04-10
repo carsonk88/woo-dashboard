@@ -227,7 +227,7 @@ export default function AbandonedCartsPage() {
                       className="text-sm font-mono font-semibold"
                       style={{ color: "var(--accent-green-bright)" }}
                     >
-                      ${cart.value.toFixed(2)}
+                      ${(Number(cart.value) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">

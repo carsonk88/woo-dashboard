@@ -213,7 +213,7 @@ export default function OrdersTable({ orders, compact = false }: OrdersTableProp
                     className="text-sm font-mono font-medium"
                     style={{ color: "var(--accent-green-bright)" }}
                   >
-                    ${order.total.toFixed(2)}
+                    ${(Number(order.total) || 0).toFixed(2)}
                   </span>
                 </td>
                 <td className="py-3">

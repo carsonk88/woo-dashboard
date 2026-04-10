@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase, Client } from "@/lib/supabase";
 import { saveWooCredentials, clearWooCredentials } from "@/lib/woo-api";
 import { saveWixCredentials, clearWixCredentials, setClientPlatform } from "@/lib/wix-api";
@@ -18,13 +18,23 @@ import DashboardPage from "@/app/page";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
+  const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
 
+  // Auth check — redirect to login if not authenticated
+  useEffect(() => {
+    const isAuthed = sessionStorage.getItem("dash_auth");
+    if (!isAuthed) {
+      router.replace("/login");
+    }
+  }, [router]);
+
   useEffect(() => {
     async function load() {
+      if (!sessionStorage.getItem("dash_auth")) return;
       const { data, error: err } = await supabase
         .from("clients")
         .select("*")

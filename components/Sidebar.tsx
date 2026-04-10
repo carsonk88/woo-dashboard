@@ -81,29 +81,10 @@ const navItems: NavItem[] = [
     icon: <Users size={15} />,
   },
   {
-    label: "Inventory",
-    href: "/inventory",
-    icon: <Archive size={15} />,
-  },
-  {
-    label: "Promo & Affiliates",
-    href: "/promo",
+    label: "Promo Codes",
+    href: "/discounts",
     icon: <Gift size={15} />,
     featureKey: "promo",
-    wixHidden: true,
-  },
-  {
-    label: "Affiliates",
-    href: "/affiliates",
-    icon: <Link2 size={15} />,
-    featureKey: "affiliates",
-    wixHidden: true,
-  },
-  {
-    label: "Affiliate Orders",
-    href: "/affiliate-orders",
-    icon: <ShoppingBag size={15} />,
-    featureKey: "affiliate-orders",
     wixHidden: true,
   },
   {

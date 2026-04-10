@@ -32,39 +32,43 @@ const mockCategories = [
 function normalizeOrder(o: any) {
   const firstName = o.billing?.first_name || "";
   const lastName = o.billing?.last_name || "";
+  const shippingAddr = [
+    o.shipping?.address_1,
+    o.shipping?.city,
+    o.shipping?.state,
+    o.shipping?.postcode,
+  ].filter(Boolean).join(", ") || "N/A";
+
   return {
     id: String(o.id),
     number: `#${o.number || o.id}`,
-    customer: {
-      name: `${firstName} ${lastName}`.trim() || "Guest",
-      email: o.billing?.email || "",
-    },
-    total: `$${parseFloat(o.total || "0").toFixed(2)}`,
+    customer: `${firstName} ${lastName}`.trim() || "Guest",
+    email: o.billing?.email || "",
+    total: parseFloat(o.total || "0"),
     status: o.status,
     date: new Date(o.date_created).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     isoDate: o.date_created || "",
     items: (o.line_items || []).map((i: any) => ({
       name: i.name,
-      quantity: i.quantity,
-      price: `$${parseFloat(i.price || "0").toFixed(2)}`,
+      qty: i.quantity,
+      price: parseFloat(i.price || "0"),
     })),
-    shippingAddress: {
-      address1: o.shipping?.address_1 || "",
-      address2: o.shipping?.address_2 || "",
-      city: o.shipping?.city || "",
-      state: o.shipping?.state || "",
-      postcode: o.shipping?.postcode || "",
+    shipping: {
+      address: shippingAddr,
+      method: o.shipping_lines?.[0]?.method_title || "Standard",
+      tracking: o.meta_data?.find((m: any) => m.key === "_tracking_number")?.value || "",
     },
-    tracking: o.meta_data?.find((m: any) => m.key === "_tracking_number")?.value || "",
-    shippingMethod: o.shipping_lines?.[0]?.method_title || "Standard",
     shippingCost: `$${parseFloat(o.shipping_total || "0").toFixed(2)}`,
-    discount: o.discount_total !== "0.00" ? `-$${parseFloat(o.discount_total).toFixed(2)}` : null,
+    discount: o.discount_total !== "0.00" ? `-$${(Number(o.discount_total) || 0).toFixed(2)}` : null,
     paymentMethod: o.payment_method_title || "",
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeProduct(p: any) {
+  const managesStock = p.manage_stock === true;
+  const stockQty = managesStock ? (p.stock_quantity ?? 0) : null;
+  const stockStatus = p.stock_status || "instock";
   return {
     id: String(p.id),
     name: p.name,
@@ -74,7 +78,10 @@ function normalizeProduct(p: any) {
     sale_price: p.sale_price ? parseFloat(p.sale_price) : null,
     status: p.status === "publish" ? "active" : "draft",
     sku: p.sku || "",
-    stock: p.stock_quantity ?? 0,
+    stock: stockQty,
+    stock_status: stockStatus,
+    manage_stock: managesStock,
+    total_sales: p.total_sales || 0,
     sizes: p.attributes?.find((a: any) => a.name === "Size" || a.name === "Sizes")?.options || [],
     image: p.images?.[0]?.src || null,
   };
@@ -109,24 +116,27 @@ function normalizeCategory(c: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeCustomer(c: any) {
+  const fullName = `${c.first_name || ""} ${c.last_name || ""}`.trim();
+  const billingName = `${c.billing?.first_name || ""} ${c.billing?.last_name || ""}`.trim();
+  const displayName = fullName || billingName || c.username || c.email || "Unknown";
+  const orderCount = c.orders_count || 0;
+  const totalSpent = parseFloat(c.total_spent || "0");
   return {
     id: String(c.id),
-    name: `${c.first_name} ${c.last_name}`.trim() || c.email,
-    email: c.email,
-    orders: c.orders_count || 0,
-    lifetime_value: `$${parseFloat(c.total_spent || "0").toFixed(2)}`,
-    avg_order:
-      c.orders_count > 0
-        ? `$${(parseFloat(c.total_spent || "0") / c.orders_count).toFixed(2)}`
-        : "$0.00",
-    last_order: c.last_order?.date_created
-      ? new Date(c.last_order.date_created).toLocaleDateString("en-US", {
+    name: displayName,
+    email: c.email || c.billing?.email || "",
+    orders: orderCount,
+    lifetime_value: `$${totalSpent.toFixed(2)}`,
+    avg_order: orderCount > 0 ? (totalSpent / orderCount) : 0,
+    last_order: c._last_order_date
+      ? new Date(c._last_order_date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
         })
       : "—",
-    account: c.role === "customer" ? "Registered" : "Guest",
+    account: c.is_paying_customer ? "Paying" : c.role === "customer" ? "Registered" : "Guest",
+    date_created: c.date_created || "",
   };
 }
 
@@ -264,7 +274,7 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
 
       if (!connected) {
         if (!cancelled) {
-          setData(mockMap[type] as T[]);
+          setData([] as T[]);
           setLoading(false);
         }
         return;
@@ -282,8 +292,31 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
           raw = (await api.getProducts(params)) as any[];
           raw = raw.map(normalizeProduct);
         } else if (type === "customers") {
-          raw = (await api.getCustomers(params)) as any[];
-          raw = raw.map(normalizeCustomer);
+          // Fetch customers AND orders to compute real stats
+          const [rawCustomers, rawOrders] = await Promise.all([
+            api.getCustomers({ ...params, per_page: 100 }) as Promise<any[]>,
+            api.getOrders({ per_page: 100, status: "any" }) as Promise<any[]>,
+          ]);
+          // Build order stats per customer email
+          const orderStats: Record<string, { count: number; total: number; lastDate: string }> = {};
+          for (const o of rawOrders) {
+            const email = (o.billing?.email || "").toLowerCase();
+            if (!email) continue;
+            if (!orderStats[email]) orderStats[email] = { count: 0, total: 0, lastDate: "" };
+            orderStats[email].count++;
+            orderStats[email].total += parseFloat(o.total || "0");
+            if (o.date_created > orderStats[email].lastDate) orderStats[email].lastDate = o.date_created;
+          }
+          raw = rawCustomers.map((c: any) => {
+            const email = (c.email || "").toLowerCase();
+            const stats = orderStats[email];
+            return normalizeCustomer({
+              ...c,
+              orders_count: stats?.count || c.orders_count || 0,
+              total_spent: stats ? String(stats.total) : c.total_spent || "0",
+              _last_order_date: stats?.lastDate || null,
+            });
+          });
         } else if (type === "discounts") {
           raw = (await api.getCoupons(params)) as any[];
           raw = raw.map(normalizeCoupon);
@@ -312,7 +345,7 @@ export function useWooData<T>(type: DataType, params?: Record<string, string | n
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load data");
-          setData(mockMap[type] as T[]);
+          setData([] as T[]);
           setLoading(false);
         }
       }

@@ -304,7 +304,7 @@ export default function PromoPage() {
                     <td className="px-4 py-3">
                       {aff.pendingPayout > 0 ? (
                         <span className="text-xs font-mono font-semibold" style={{ color: "#facc15" }}>
-                          ${aff.pendingPayout.toFixed(2)}
+                          ${(Number(aff.pendingPayout) || 0).toFixed(2)}
                         </span>
                       ) : (
                         <span className="text-xs" style={{ color: "var(--text-subtle)" }}>$0.00</span>

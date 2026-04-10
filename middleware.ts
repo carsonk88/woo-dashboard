@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(req: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
 
-  // Only redirect on client-specific deployments
+  // Only apply auth redirect on client-specific deployments
   if (!clientId) return NextResponse.next();
 
   const { pathname } = req.nextUrl;
 
-  // Pass through: already on client page, API routes, Next.js internals, static files
+  // Always allow: login page, API routes, Next.js internals, static files, agency
   if (
-    pathname.startsWith(`/c/${clientId}`) ||
+    pathname === "/login" ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
@@ -19,14 +19,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect root and all other pages to /c/{clientId}
-  // so credentials get initialized from Supabase on first load
+  // Redirect root to login
   if (pathname === "/") {
     const url = req.nextUrl.clone();
-    url.pathname = `/c/${clientId}`;
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
+  // Allow /c/{clientId} through — LayoutShell handles client-side auth check
   return NextResponse.next();
 }
 

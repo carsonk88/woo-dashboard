@@ -198,7 +198,7 @@ export default function AffiliatesPage() {
                       className="text-sm font-mono font-semibold"
                       style={{ color: aff.pendingPayout > 0 ? "#facc15" : "var(--text-subtle)" }}
                     >
-                      ${aff.pendingPayout.toFixed(2)}
+                      ${(Number(aff.pendingPayout) || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">

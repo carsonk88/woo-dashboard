@@ -230,7 +230,7 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
                   className="font-mono"
                   style={{ color: "var(--accent-green-bright)" }}
                 >
-                  ${order.total.toFixed(2)}
+                  ${(Number(order.total) || 0).toFixed(2)}
                 </span>
               </div>
             </div>

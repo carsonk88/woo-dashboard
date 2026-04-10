@@ -124,7 +124,7 @@ export default function DiscountsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                      {d.minOrder > 0 ? `$${d.minOrder.toFixed(2)}` : "None"}
+                      {d.minOrder > 0 ? `$${(Number(d.minOrder) || 0).toFixed(2)}` : "None"}
                     </span>
                   </td>
                   <td className="px-4 py-3">

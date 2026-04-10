@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Search, Archive, AlertTriangle, XCircle, DollarSign } from "lucide-react";
-import { inventory as mockInventory } from "@/lib/mock-data";
+// Mock data removed — uses live WooCommerce data only
 import { useWooData } from "@/lib/use-woo-data";
 
 function StockBadge({ status }: { status: string }) {
@@ -45,19 +45,23 @@ export default function InventoryPage() {
 
   // Normalize products to inventory shape
   const inventory = useMemo(() => {
-    if (!isLive) return mockInventory;
     return products.map((p: any) => {
-      const stock = typeof p.stock === "number" ? p.stock : (p.stock_quantity ?? 0);
-      const status = stock === 0 ? "out_of_stock" : stock < 10 ? "low_stock" : "in_stock";
+      const managesStock = p.manage_stock === true;
+      const stock = managesStock ? (p.stock ?? 0) : null;
+      const stockStatus = p.stock_status || "instock";
+      const status = !managesStock
+        ? (stockStatus === "outofstock" ? "out_of_stock" : "in_stock")
+        : (stock === 0 ? "out_of_stock" : (stock !== null && stock < 10) ? "low_stock" : "in_stock");
       return {
         id: p.id,
         product: p.name,
         sku: p.sku || "—",
         category: p.category || "Uncategorized",
         combined: stock,
-        stockTampa: null,
-        stockMelbourne: null,
+        stockLabel: managesStock ? String(stock) : (stockStatus === "instock" ? "In Stock" : "Out of Stock"),
+        price: p.price || 0,
         costPerUnit: null,
+        image: p.image || null,
         status,
       };
     });
@@ -75,7 +79,7 @@ export default function InventoryPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalSKUs = inventory.length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalValue = isLive ? 0 : (inventory as any[]).reduce((acc: number, item: any) => acc + (item.combined || 0) * (item.costPerUnit || 0), 0);
+  const totalValue = (inventory as any[]).reduce((acc: number, item: any) => acc + (item.combined || 0) * (item.costPerUnit || 0), 0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lowStockCount = (inventory as any[]).filter((i: any) => i.status === "low_stock").length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +170,7 @@ export default function InventoryPage() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["PRODUCT", "SKU", "CATEGORY", ...(isLive ? [] : ["TAMPA", "MELBOURNE"]), "STOCK", ...(isLive ? [] : ["COST/UNIT"]), "STATUS", ""].map(
+                    {["PRODUCT", "SKU", "CATEGORY", "PRICE", "STOCK", "STATUS", ""].map(
                       (h) => (
                         <th
                           key={h}
@@ -188,9 +192,16 @@ export default function InventoryPage() {
                       style={{ borderBottom: "1px solid var(--row-border)" }}
                     >
                       <td className="px-3 py-3">
-                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                          {item.product.length > 22 ? item.product.slice(0, 22) + "…" : item.product}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          {item.image ? (
+                            <img src={item.image} alt={item.product} className="w-7 h-7 rounded object-cover flex-shrink-0" style={{ border: "1px solid var(--border)" }} />
+                          ) : (
+                            <div className="w-7 h-7 rounded flex-shrink-0" style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }} />
+                          )}
+                          <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                            {item.product.length > 22 ? item.product.slice(0, 22) + "…" : item.product}
+                          </p>
+                        </div>
                       </td>
                       <td className="px-3 py-3">
                         <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
@@ -202,20 +213,11 @@ export default function InventoryPage() {
                           {item.category}
                         </span>
                       </td>
-                      {!isLive && (
-                        <td className="px-3 py-3">
-                          <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                            {item.stockTampa}
-                          </span>
-                        </td>
-                      )}
-                      {!isLive && (
-                        <td className="px-3 py-3">
-                          <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
-                            {item.stockMelbourne}
-                          </span>
-                        </td>
-                      )}
+                      <td className="px-3 py-3">
+                        <span className="text-xs font-mono" style={{ color: "var(--accent-green-bright)" }}>
+                          ${(Number(item.price) || 0).toFixed(2)}
+                        </span>
+                      </td>
                       <td className="px-3 py-3">
                         <span
                           className="text-sm font-mono font-semibold"
@@ -223,21 +225,14 @@ export default function InventoryPage() {
                             color:
                               item.combined === 0
                                 ? "var(--accent-red)"
-                                : item.combined < 10
+                                : item.combined !== null && item.combined < 10
                                 ? "#facc15"
                                 : "var(--text-primary)",
                           }}
                         >
-                          {item.combined}
+                          {item.stockLabel}
                         </span>
                       </td>
-                      {!isLive && (
-                        <td className="px-3 py-3">
-                          <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                            ${item.costPerUnit?.toFixed(2) ?? "—"}
-                          </span>
-                        </td>
-                      )}
                       <td className="px-3 py-3">
                         <StockBadge status={item.status} />
                       </td>
