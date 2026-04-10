@@ -21,4 +21,6 @@ export interface Client {
   dashboard_url: string | null;
   vercel_project_id: string | null;
   enabled_features: string[] | null;
+  tiktok_access_token: string | null;
+  tiktok_advertiser_id: string | null;
 }

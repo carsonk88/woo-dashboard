@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { TrendingUp, DollarSign, Eye, MousePointer, Percent, ShoppingCart, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { TrendingUp, DollarSign, Eye, MousePointer, Percent, ShoppingCart, RefreshCw } from "lucide-react";
+import { loadTikTokCredentials, isTikTokConnected } from "@/lib/tiktok-api";
 
-const mockCampaigns = [
+const DEMO_CAMPAIGNS = [
   {
     id: 1,
     name: "Peptides — Broad Match",
@@ -56,22 +57,12 @@ const mockCampaigns = [
     conversions: 7,
     ctr: "3.70%",
   },
-  {
-    id: 5,
-    name: "TikTok — Sleep Products",
-    platform: "TikTok",
-    status: "active",
-    spend: 345.00,
-    revenue: 1234.00,
-    roas: 3.58,
-    impressions: 87654,
-    clicks: 2109,
-    conversions: 12,
-    ctr: "2.41%",
-  },
 ];
 
 type PlatformKey = "google" | "meta" | "tiktok";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Campaign = any;
 
 export default function AdvertisingPage() {
   const [connections, setConnections] = useState<Record<PlatformKey, boolean>>({
@@ -80,6 +71,42 @@ export default function AdvertisingPage() {
     tiktok: false,
   });
   const [connecting, setConnecting] = useState<PlatformKey | null>(null);
+  const [tiktokCampaigns, setTiktokCampaigns] = useState<Campaign[]>([]);
+  const [tiktokLoading, setTiktokLoading] = useState(false);
+  const [tiktokError, setTiktokError] = useState("");
+
+  // On mount: check if TikTok creds exist and auto-connect + fetch
+  useEffect(() => {
+    if (isTikTokConnected()) {
+      setConnections((prev) => ({ ...prev, tiktok: true }));
+      fetchTikTokCampaigns();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchTikTokCampaigns() {
+    const creds = loadTikTokCredentials();
+    if (!creds) return;
+    setTiktokLoading(true);
+    setTiktokError("");
+    try {
+      const res = await fetch("/api/tiktok", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken: creds.accessToken, advertiserId: creds.advertiserId }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setTiktokError(json.error ?? "Failed to fetch TikTok data");
+      } else {
+        setTiktokCampaigns(json.campaigns ?? []);
+      }
+    } catch {
+      setTiktokError("Network error fetching TikTok campaigns");
+    } finally {
+      setTiktokLoading(false);
+    }
+  }
 
   const anyConnected = Object.values(connections).some(Boolean);
 
@@ -88,12 +115,20 @@ export default function AdvertisingPage() {
     setTimeout(() => {
       setConnections((prev) => ({ ...prev, [platform]: true }));
       setConnecting(null);
+      if (platform === "tiktok") fetchTikTokCampaigns();
     }, 1200);
   };
 
   const handleDisconnect = (platform: PlatformKey) => {
     setConnections((prev) => ({ ...prev, [platform]: false }));
+    if (platform === "tiktok") setTiktokCampaigns([]);
   };
+
+  // Combine demo campaigns (non-TikTok) with live TikTok campaigns
+  const mockCampaigns: Campaign[] = [
+    ...DEMO_CAMPAIGNS,
+    ...tiktokCampaigns,
+  ];
 
   const totalSpend = mockCampaigns.reduce((acc, c) => acc + c.spend, 0);
   const totalRevenue = mockCampaigns.reduce((acc, c) => acc + c.revenue, 0);
@@ -319,10 +354,31 @@ export default function AdvertisingPage() {
             className="rounded-xl overflow-hidden"
             style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
-            <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
               <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                 Campaign Breakdown
               </h3>
+              <div className="flex items-center gap-2">
+                {tiktokLoading && (
+                  <span className="flex items-center gap-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    <RefreshCw size={10} className="animate-spin" /> Syncing TikTok...
+                  </span>
+                )}
+                {tiktokError && !tiktokLoading && (
+                  <span className="text-[10px]" style={{ color: "#f87171" }} title={tiktokError}>
+                    TikTok sync failed
+                  </span>
+                )}
+                {connections.tiktok && !tiktokLoading && !tiktokError && (
+                  <button
+                    onClick={fetchTikTokCampaigns}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 rounded"
+                    style={{ color: "var(--text-muted)", backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}
+                  >
+                    <RefreshCw size={9} /> Refresh
+                  </button>
+                )}
+              </div>
             </div>
             <div className="table-scroll">
             <table className="w-full">

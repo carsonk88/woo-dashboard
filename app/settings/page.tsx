@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Save, CheckCircle, Eye, EyeOff, RefreshCw, Package, ShoppingCart, Users, Tag } from "lucide-react";
 import { saveWooCredentials, loadWooCredentials } from "@/lib/woo-api";
+import { saveTikTokCredentials, loadTikTokCredentials, clearTikTokCredentials, isTikTokConnected } from "@/lib/tiktok-api";
 import SyncStatusPanel from "./sync-status";
 
 type SettingsTab =
@@ -76,6 +77,33 @@ export default function SettingsPage() {
   const [wixSyncing, setWixSyncing] = useState<string | null>(null);
   const [wixSyncResults, setWixSyncResults] = useState<Record<string, { done: boolean; count: number }>>({});
 
+  // TikTok connection state
+  const [tiktokToken, setTiktokToken] = useState("");
+  const [tiktokAdvertiserId, setTiktokAdvertiserId] = useState("");
+  const [showTiktokToken, setShowTiktokToken] = useState(false);
+  const [tiktokConnected, setTiktokConnected] = useState(false);
+  const [tiktokSaving, setTiktokSaving] = useState(false);
+  const [tiktokSaved, setTiktokSaved] = useState(false);
+
+  const handleConnectTikTok = () => {
+    if (!tiktokToken || !tiktokAdvertiserId) return;
+    setTiktokSaving(true);
+    saveTikTokCredentials({ accessToken: tiktokToken, advertiserId: tiktokAdvertiserId });
+    setTimeout(() => {
+      setTiktokSaving(false);
+      setTiktokConnected(true);
+      setTiktokSaved(true);
+      setTimeout(() => setTiktokSaved(false), 3000);
+    }, 800);
+  };
+
+  const handleDisconnectTikTok = () => {
+    clearTikTokCredentials();
+    setTiktokConnected(false);
+    setTiktokToken("");
+    setTiktokAdvertiserId("");
+  };
+
   const handleConnectWix = () => {
     if (!wixSiteId || !wixApiKey) return;
     setWixSaving(true);
@@ -107,6 +135,12 @@ export default function SettingsPage() {
       setWooKey(creds.consumerKey);
       setWooSecret(creds.consumerSecret);
       setWooConnected(true);
+    }
+    if (isTikTokConnected()) {
+      const tt = loadTikTokCredentials()!;
+      setTiktokToken(tt.accessToken);
+      setTiktokAdvertiserId(tt.advertiserId);
+      setTiktokConnected(true);
     }
   }, []);
 
@@ -467,6 +501,119 @@ export default function SettingsPage() {
                 </button>
               </div>
             </>
+          )}
+        </div>
+
+        {/* TikTok Ads Connection Card */}
+        <div
+          className="rounded-xl p-5 mb-6"
+          style={{
+            backgroundColor: tiktokConnected ? "rgba(254,44,85,0.04)" : "var(--bg-card)",
+            border: `1px solid ${tiktokConnected ? "rgba(254,44,85,0.25)" : "var(--border)"}`,
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold" style={{ backgroundColor: "#fe2c55", color: "#fff" }}>T</div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                TikTok Ads Connection
+              </h2>
+              {tiktokConnected && (
+                <span
+                  className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "rgba(37,99,235,0.12)", color: "var(--accent-green-bright)", border: "1px solid rgba(37,99,235,0.25)" }}
+                >
+                  <CheckCircle size={10} />
+                  Connected
+                </span>
+              )}
+            </div>
+            {tiktokSaved && (
+              <span className="text-xs" style={{ color: "var(--accent-green-bright)" }}>Saved successfully!</span>
+            )}
+          </div>
+
+          {!tiktokConnected ? (
+            <div className="space-y-3">
+              <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                Connect your TikTok Ads account to sync campaign performance, spend, and ROAS into the Advertising dashboard.
+              </p>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
+                  Access Token
+                </label>
+                <div className="relative">
+                  <input
+                    type={showTiktokToken ? "text" : "password"}
+                    value={tiktokToken}
+                    onChange={(e) => setTiktokToken(e.target.value)}
+                    placeholder="Your TikTok Ads access token"
+                    className="w-full px-3 py-2 pr-9 rounded-lg text-xs font-mono outline-none"
+                    style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                    onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "#fe2c55"; }}
+                    onBlur={(e) => { (e.target as HTMLInputElement).style.borderColor = "var(--border)"; }}
+                  />
+                  <button
+                    onClick={() => setShowTiktokToken(!showTiktokToken)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {showTiktokToken ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+                <p className="text-[10px] mt-1" style={{ color: "var(--text-subtle)" }}>
+                  Found in TikTok Business Center → Assets → Business Access Tokens
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
+                  Advertiser ID
+                </label>
+                <input
+                  type="text"
+                  value={tiktokAdvertiserId}
+                  onChange={(e) => setTiktokAdvertiserId(e.target.value)}
+                  placeholder="1234567890123456789"
+                  className="w-full px-3 py-2 rounded-lg text-xs font-mono outline-none"
+                  style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                  onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "#fe2c55"; }}
+                  onBlur={(e) => { (e.target as HTMLInputElement).style.borderColor = "var(--border)"; }}
+                />
+                <p className="text-[10px] mt-1" style={{ color: "var(--text-subtle)" }}>
+                  Found in TikTok Ads Manager → Account Info
+                </p>
+              </div>
+              <button
+                onClick={handleConnectTikTok}
+                disabled={!tiktokToken || !tiktokAdvertiserId || tiktokSaving}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium"
+                style={{
+                  backgroundColor: tiktokToken && tiktokAdvertiserId ? "#fe2c55" : "var(--bg-elevated)",
+                  color: tiktokToken && tiktokAdvertiserId ? "#fff" : "var(--text-subtle)",
+                  border: tiktokToken && tiktokAdvertiserId ? "none" : "1px solid var(--border)",
+                }}
+              >
+                {tiktokSaving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                {tiktokSaving ? "Connecting..." : "Connect TikTok Ads"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                TikTok Ads connected. Campaign data will sync to the Advertising dashboard automatically.
+                <br />
+                <span className="font-mono text-[10px]" style={{ color: "var(--text-subtle)" }}>
+                  Advertiser ID: {tiktokAdvertiserId}
+                </span>
+              </p>
+              <button
+                onClick={handleDisconnectTikTok}
+                className="text-xs ml-4 flex-shrink-0"
+                style={{ color: "var(--text-subtle)" }}
+              >
+                Disconnect
+              </button>
+            </div>
           )}
         </div>
 

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase, Client } from "@/lib/supabase";
 import { saveWooCredentials, clearWooCredentials } from "@/lib/woo-api";
 import { saveWixCredentials, clearWixCredentials, setClientPlatform } from "@/lib/wix-api";
+import { saveTikTokCredentials, clearTikTokCredentials } from "@/lib/tiktok-api";
 import Sidebar from "@/components/Sidebar";
 import {
   RefreshCw,
@@ -52,6 +53,15 @@ export default function ClientDashboard() {
           url: c.store_url,
           consumerKey: c.woo_consumer_key,
           consumerSecret: c.woo_consumer_secret,
+        });
+      }
+
+      // Always clear TikTok creds first, then set only if this client has them
+      clearTikTokCredentials();
+      if (c.tiktok_access_token && c.tiktok_advertiser_id) {
+        saveTikTokCredentials({
+          accessToken: c.tiktok_access_token,
+          advertiserId: c.tiktok_advertiser_id,
         });
       }
 
