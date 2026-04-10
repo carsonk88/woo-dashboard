@@ -362,24 +362,33 @@ function AdPerformanceDashboard({ accounts }: { accounts: Record<string, { id: s
   const [loading, setLoading] = useState(true);
   const [datePreset, setDatePreset] = useState("last_7d");
   const [error, setError] = useState("");
+  // Which platform to view when multiple are connected
+  const connectedPlatforms = Object.keys(accounts).filter((p) => p !== "google");
+  const [activePlatform, setActivePlatform] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (connectedPlatforms.length > 0 && !activePlatform) {
+      setActivePlatform(connectedPlatforms[0]);
+    }
+  }, [accounts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const platform = activePlatform ?? connectedPlatforms[0];
 
   useEffect(() => {
     async function load() {
+      if (!platform) return;
       setLoading(true);
       setError("");
-      // For now, fetch Meta if connected
-      if (accounts.meta) {
-        try {
-          const res = await fetch(`/api/ads?platform=meta&date_preset=${datePreset}`);
-          const json = await res.json();
-          if (json.error) { setError(json.error); }
-          else { setData(json); }
-        } catch { setError("Failed to fetch ad data"); }
-      }
+      try {
+        const res = await fetch(`/api/ads?platform=${platform}&date_preset=${datePreset}`);
+        const json = await res.json();
+        if (json.error) { setError(json.error); }
+        else { setData(json); }
+      } catch { setError("Failed to fetch ad data"); }
       setLoading(false);
     }
     load();
-  }, [datePreset, accounts]);
+  }, [datePreset, platform]);
 
   const periods = [
     { key: "today", label: "Today" },
@@ -413,6 +422,25 @@ function AdPerformanceDashboard({ accounts }: { accounts: Record<string, { id: s
 
   return (
     <div>
+      {/* Platform switcher */}
+      {connectedPlatforms.length > 1 && (
+        <div className="flex gap-1 mb-3 flex-wrap">
+          {connectedPlatforms.map((p) => (
+            <button
+              key={p}
+              onClick={() => setActivePlatform(p)}
+              className="text-[11px] px-3 py-1.5 rounded-md font-medium capitalize"
+              style={
+                platform === p
+                  ? { backgroundColor: "var(--accent-green)", color: "#fff" }
+                  : { backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+              }
+            >
+              {p === "meta" ? "Meta" : p === "tiktok" ? "TikTok" : p}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Date filter */}
       <div className="flex gap-1 mb-4 flex-wrap">
         {periods.map((p) => (

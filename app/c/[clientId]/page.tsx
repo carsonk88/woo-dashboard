@@ -68,10 +68,10 @@ export default function ClientDashboard() {
 
       // Always clear TikTok creds first, then set only if this client has them
       clearTikTokCredentials();
-      if (c.tiktok_access_token && c.tiktok_advertiser_id) {
+      if (c.tiktok_ads_access_token && c.tiktok_ads_advertiser_id) {
         saveTikTokCredentials({
-          accessToken: c.tiktok_access_token,
-          advertiserId: c.tiktok_advertiser_id,
+          accessToken: c.tiktok_ads_access_token,
+          advertiserId: c.tiktok_ads_advertiser_id,
         });
       }
 
