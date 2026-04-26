@@ -19,10 +19,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect root to login
+  // Redirect root to the client dashboard; that page handles auth and sends
+  // unauthenticated users to /login itself.
   if (pathname === "/") {
     const url = req.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = `/c/${clientId}`;
     return NextResponse.redirect(url);
   }
 
