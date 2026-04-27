@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(req: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
-
-  // Only apply auth redirect on client-specific deployments
-  if (!clientId) return NextResponse.next();
-
   const { pathname } = req.nextUrl;
+
+  // Master/agency deploy (no CLIENT_ID): / and /login both go to /agency.
+  // The per-client /login flow needs a CLIENT_ID to validate against, so it can't work here.
+  if (!clientId) {
+    if (pathname === "/" || pathname === "/login") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/agency";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
 
   // Always allow: login page, API routes, Next.js internals, static files, agency
   if (
